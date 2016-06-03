@@ -1,10 +1,10 @@
 <?php
 
 /**
- * Created by PhpStorm.
- * User: Marc
- * Date: 5/31/2016
- * Time: 11:58 PM
+ * GravityView DataTables Alt Data Source class
+ *
+ * @license     http://opensource.org/licenses/gpl-2.0.php GNU Public License
+ * @since       1.0
  */
 class GravityView_DataTables_Alt_DataSrc {
 

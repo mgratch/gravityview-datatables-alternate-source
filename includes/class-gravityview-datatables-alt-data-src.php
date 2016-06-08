@@ -29,6 +29,7 @@ class GravityView_DataTables_Alt_DataSrc {
 			$this,
 			'change_gravityview_datatables_source'
 		), 9999, 3 );
+		add_action( 'save_post', array( $this, 'generate_index_table' ) );
 	}
 
 	/**
@@ -68,8 +69,8 @@ class GravityView_DataTables_Alt_DataSrc {
 	private function get_view_data( $view_id ) {
 		global $gravityview_view;
 
-		$view_data        = gravityview_get_current_view_data( $view_id );
-		$gravityview_view = new GravityView_View( $view_data );
+		$view_data           = gravityview_get_current_view_data( $view_id );
+		$gravityview_view    = new GravityView_View( $view_data );
 
 		// Prevent error output
 		ob_start();
@@ -135,7 +136,7 @@ class GravityView_DataTables_Alt_DataSrc {
 			}
 		}
 
-		if (!isset($output) || empty($output)){
+		if ( ! isset( $output ) || empty( $output ) ) {
 
 			/**
 			 * @todo remove this when ajax is enabled
@@ -192,6 +193,26 @@ class GravityView_DataTables_Alt_DataSrc {
 		}
 
 		return $output;
+	}
+
+	/**
+	 * Save post metadata when a post is saved.
+	 *
+	 * @param int $post_id The post ID.
+	 *
+	 * @internal param post $post The post object.
+	 * @internal param bool $update Whether this is an existing post being updated or not.
+	 */
+	public function generate_index_table( $post_id ) {
+
+		$post = get_post( $post_id );
+
+		if ( 'gravityview' != $post->post_type ) {
+			return;
+		}
+
+		$gravityview_view_DT = new GravityView_DataTables_Index_DB( $post_id );
+		$gravityview_view_DT->create_table();
 	}
 
 

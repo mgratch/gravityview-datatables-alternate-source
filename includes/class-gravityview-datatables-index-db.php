@@ -15,6 +15,35 @@ class GravityView_DataTables_Index_DB extends GravityView_Index_DB {
 	public $view_id = null;
 
 	/**
+	 * View Data
+	 * @var array
+	 */
+	public $view_data = array();
+
+	/**
+	 * View Columns
+	 * @var array
+	 */
+	public $columns = array();
+
+	/**
+	 * GravityForems/GravityView Meta Fields
+	 * @var array
+	 */
+	public $meta_fields = array(
+		"id",
+		"date_created",
+		"source_url",
+		"ip",
+		"created_by",
+		"custom",
+		"other_entries",
+		"entry_link",
+		"edit_link",
+		"delete_link"
+	);
+
+	/**
 	 * Get things started
 	 *
 	 * @access  public
@@ -26,9 +55,14 @@ class GravityView_DataTables_Index_DB extends GravityView_Index_DB {
 
 		global $wpdb;
 
-		$this->view_id = null == $view_id ? '' : "_" . $view_id;
+		$this->view_id = null == $view_id ? '' : $view_id;
+		$table_suffix  = '' == $view_id ? '' : "_" . $view_id;
 
-		$this->table_name  = $wpdb->prefix . 'gv_index' . $this->view_id;
+		$this->view_data = GravityView_View_Data::getInstance()->get_view( $view_id );
+		$columns         = $this->view_data['fields']['directory_table-columns'];
+		array_map( array( &$this, 'build_columns_array' ), $columns );
+
+		$this->table_name  = $wpdb->prefix . 'gv_index' . $table_suffix;
 		$this->primary_key = 'index_id';
 		$this->version     = '1.0';
 
@@ -41,42 +75,68 @@ class GravityView_DataTables_Index_DB extends GravityView_Index_DB {
 	 * @since   1.0
 	 */
 	public function get_columns() {
-		return array(
-			'index_id'    => '%d',
-			'customer_id' => '%d',
-			'email'       => '%s',
-			'subtotal'    => '%f',
-			'total'       => '%f',
-			'tax'         => '%f',
-			'gateway'     => '%s',
-			'ip'          => '%s',
-			'status'      => '%s',
-			'date'        => '%s',
-		);
+		return $this->columns;
 	}
 
 	/**
-	 * Get default column values
+	 * @param $col
+	 */
+	private function build_columns_array( $col ) {
+
+		$label = is_numeric( $col['id'] ) ? "field_" . $col['id'] : $col['id'];
+
+		if ( isset( $this->columns[ $label ] ) ) {
+			for ( $i = 0; $i < count( $this->columns ); $i ++ ) {
+				if ( ! isset( $this->columns[ $label . "_{$i}" ] ) ) {
+					$label = $label . "_{$i}";
+					continue;
+				}
+			}
+		}
+
+		$field_type = gravityview_get_field_type( $this->view_data['form_id'], $col['id'] );
+
+		$label = $this->sanitize_column_label( $label );
+
+		$this->columns[ $label ] = null !== $field_type ? $field_type : $this->get_field_type( $col['id'] );
+	}
+
+	/**
+	 * @param $key
+	 *
+	 * @return mixed|void
+	 */
+	private function sanitize_column_label( $key ) {
+		$raw_key = $key;
+		$key     = strtolower( $key );
+		$key     = str_replace( ' ', '_', $key );
+		$key     = preg_replace( '/[^a-z0-9_\.\-]/', '', $key );
+		$key     = preg_replace( '/[.-]/', '_', $key );
+
+		/**
+		 * Filter a sanitized column name.
+		 *
+		 * @since 1.0
+		 *
+		 * @param string $key Sanitized key.
+		 * @param string $raw_key The key prior to sanitization.
+		 */
+		return apply_filters( 'gv/gvdt/sanitize_column_name', $key, $raw_key );
+	}
+
+
+	/**
+	 * Get default field values
 	 *
 	 * @access  public
 	 * @since   1.0
 	 */
 	public function get_column_defaults() {
-		return array(
-			'customer_id' => 0,
-			'subtotal'    => '',
-			'total'       => '',
-			'tax'         => '',
-			'gateway'     => '',
-			'ip'          => '',
-			'gateway'     => '',
-			'status'      => '',
-			'date'        => date( 'Y-m-d H:i:s' ),
-		);
+		return $this->get_columns();
 	}
 
 	/**
-	 * Retrieve orders from the database
+	 * Retrieve entries from the database
 	 *
 	 * @access  public
 	 * @since   1.0
@@ -86,19 +146,13 @@ class GravityView_DataTables_Index_DB extends GravityView_Index_DB {
 	 *
 	 * @return array|bool|int|mixed|null|object
 	 */
-	public function get_orders( $args = array(), $count = false ) {
+	public function get_entries( $args = array(), $count = false ) {
 
 		global $wpdb;
 
-		$defaults = array(
-			'number'   => 20,
-			'offset'   => 0,
-			'index_id' => 0,
-			'status'   => '',
-			'email'    => '',
-			'orderby'  => 'index_id',
-			'order'    => 'DESC',
-		);
+		$defaults            = $this->get_columns();
+		$defaults['orderby'] = 'index_id';
+		$defaults['order']   = 'DESC';
 
 		$args = wp_parse_args( $args, $defaults );
 
@@ -108,119 +162,83 @@ class GravityView_DataTables_Index_DB extends GravityView_Index_DB {
 
 		$where = '';
 
-		// specific referrals
-		if ( ! empty( $args['index_id'] ) ) {
+		foreach ( $args as $key => $value ) {
+			if ( ! empty( $value ) && 'date_created' !== $key && 'order' !== $key && 'orderby' !== $key && 'count' !== $key ) {
 
-			if ( is_array( $args['index_id'] ) ) {
-				$index_ids = implode( ',', $args['index_id'] );
-			} else {
-				$index_ids = intval( $args['index_id'] );
-			}
-
-			$where .= "WHERE `index_id` IN( {$index_ids} ) ";
-
-		}
-
-		if ( ! empty( $args['status'] ) ) {
-
-			if ( empty( $where ) ) {
-				$where .= " WHERE";
-			} else {
-				$where .= " AND";
-			}
-
-			if ( is_array( $args['status'] ) ) {
-				$where .= " `status` IN('" . implode( "','", $args['status'] ) . "') ";
-			} else {
-				$where .= " `status` = '" . $args['status'] . "' ";
-			}
-
-		}
-
-		if ( ! empty( $args['email'] ) ) {
-
-			if ( empty( $where ) ) {
-				$where .= " WHERE";
-			} else {
-				$where .= " AND";
-			}
-
-			if ( is_array( $args['email'] ) ) {
-				$where .= " `email` IN(" . implode( ',', $args['email'] ) . ") ";
-			} else {
-				if ( ! empty( $args['search'] ) ) {
-					$where .= " `email` LIKE '%%" . $args['email'] . "%%' ";
+				if ( is_array( $value ) ) {
+					$values = implode( ',', $value );
 				} else {
-					$where .= " `email` = '" . $args['email'] . "' ";
-				}
-			}
-
-		}
-
-		if ( ! empty( $args['date'] ) ) {
-
-			if ( is_array( $args['date'] ) ) {
-
-				if ( ! empty( $args['date']['start'] ) ) {
-
-					if ( false !== strpos( $args['date']['start'], ':' ) ) {
-						$format = 'Y-m-d H:i:s';
-					} else {
-						$format = 'Y-m-d 00:00:00';
-					}
-
-					$start = date( $format, strtotime( $args['date']['start'] ) );
-
-					if ( ! empty( $where ) ) {
-
-						$where .= " AND `date` >= '{$start}'";
-
-					} else {
-
-						$where .= " WHERE `date` >= '{$start}'";
-
-					}
-
+					$values = intval( $value );
 				}
 
-				if ( ! empty( $args['date']['end'] ) ) {
+				$where .= "WHERE `$key` IN( {$values} ) ";
 
-					if ( false !== strpos( $args['date']['end'], ':' ) ) {
-						$format = 'Y-m-d H:i:s';
-					} else {
-						$format = 'Y-m-d 23:59:59';
+			} elseif ( ! empty( $value ) && 'date_created' == $key ) {
+
+				if ( is_array( $value ) ) {
+
+					if ( ! empty( $value['start'] ) ) {
+
+						if ( false !== strpos( $value['start'], ':' ) ) {
+							$format = 'Y-m-d H:i:s';
+						} else {
+							$format = 'Y-m-d 00:00:00';
+						}
+
+						$start = date( $format, strtotime( $value['start'] ) );
+
+						if ( ! empty( $where ) ) {
+
+							$where .= " AND `date` >= '{$start}'";
+
+						} else {
+
+							$where .= " WHERE `date` >= '{$start}'";
+
+						}
+
 					}
 
-					$end = date( $format, strtotime( $args['date']['end'] ) );
+					if ( ! empty( $value['end'] ) ) {
 
-					if ( ! empty( $where ) ) {
+						if ( false !== strpos( $value['end'], ':' ) ) {
+							$format = 'Y-m-d H:i:s';
+						} else {
+							$format = 'Y-m-d 23:59:59';
+						}
 
-						$where .= " AND `date` <= '{$end}'";
+						$end = date( $format, strtotime( $value['end'] ) );
 
-					} else {
+						if ( ! empty( $where ) ) {
 
-						$where .= " WHERE `date` <= '{$end}'";
+							$where .= " AND `date` <= '{$end}'";
+
+						} else {
+
+							$where .= " WHERE `date` <= '{$end}'";
+
+						}
 
 					}
 
-				}
-
-			} else {
-
-				$year  = date( 'Y', strtotime( $args['date'] ) );
-				$month = date( 'm', strtotime( $args['date'] ) );
-				$day   = date( 'd', strtotime( $args['date'] ) );
-
-				if ( empty( $where ) ) {
-					$where .= " WHERE";
 				} else {
-					$where .= " AND";
+
+					$year  = date( 'Y', strtotime( $value ) );
+					$month = date( 'm', strtotime( $value ) );
+					$day   = date( 'd', strtotime( $value ) );
+
+					if ( empty( $where ) ) {
+						$where .= " WHERE";
+					} else {
+						$where .= " AND";
+					}
+
+					$where .= " $year = YEAR ( date ) AND $month = MONTH ( date ) AND $day = DAY ( date )";
 				}
 
-				$where .= " $year = YEAR ( date ) AND $month = MONTH ( date ) AND $day = DAY ( date )";
 			}
-
 		}
+
 
 		$args['orderby'] = ! array_key_exists( $args['orderby'], $this->get_columns() ) ? $this->primary_key : $args['orderby'];
 
@@ -230,9 +248,9 @@ class GravityView_DataTables_Index_DB extends GravityView_Index_DB {
 			$args['orderby'] = 'subtotal+0';
 		}
 
-		$cache_key = ( true === $count ) ? md5( 'pw_orders_count' . serialize( $args ) ) : md5( 'pw_orders_' . serialize( $args ) );
+		$cache_key = ( true === $count ) ? md5( 'pw_entries_count' . serialize( $args ) ) : md5( 'pw_entries_' . serialize( $args ) );
 
-		$results = wp_cache_get( $cache_key, 'orders' );
+		$results = wp_cache_get( $cache_key, 'entries' );
 
 		if ( false === $results ) {
 
@@ -252,7 +270,7 @@ class GravityView_DataTables_Index_DB extends GravityView_Index_DB {
 
 			}
 
-			wp_cache_set( $cache_key, $results, 'orders', 3600 );
+			wp_cache_set( $cache_key, $results, 'entries', 3600 );
 
 		}
 
@@ -268,7 +286,7 @@ class GravityView_DataTables_Index_DB extends GravityView_Index_DB {
 	 * @return int
 	 */
 	public function count( $args = array() ) {
-		return $this->get_orders( $args, true );
+		return $this->get_entries( $args, true );
 	}
 
 	/**
@@ -283,22 +301,188 @@ class GravityView_DataTables_Index_DB extends GravityView_Index_DB {
 
 		require_once( ABSPATH . 'wp-admin/includes/upgrade.php' );
 
-		$sql = "CREATE TABLE " . $this->table_name . " (
-		index_id bigint(20) NOT NULL AUTO_INCREMENT,
-		customer_id bigint(20) NOT NULL,
-		email mediumtext NOT NULL,
-		subtotal mediumtext NOT NULL,
-		total mediumtext NOT NULL,
-		tax mediumtext NOT NULL,
-		gateway tinytext NOT NULL,
-		ip tinytext NOT NULL,
-		status varchar(30) NOT NULL,
-		date datetime NOT NULL,
-		PRIMARY KEY  (index_id)
-		) CHARACTER SET utf8 COLLATE utf8_general_ci;";
+		$table_name = $this->table_name;
+
+		$columns = $this->get_columns();
+
+		if ( ! isset( $columns['id'] ) ) {
+			$columns['id'] = 0;
+		}
+
+
+		$table_columns = "index_id bigint(20) NOT NULL AUTO_INCREMENT,";
+
+		$table_columns .= "\n\t";
+
+		foreach ( $columns as $column_key => $value ) {
+			$type  = $this->generate_field_defaults( $column_key );
+			$default = '' === $value ? '""' : $value;
+
+			/**
+			 * determine if we need a space
+			 */
+			$spacer   = "None" !== $default ? ' ' : '';
+
+			$default  = "None" === $default ? '' : "DEFAULT $default";
+			$not_null = null === $default ? ',' : 'NOT NULL,';
+			$table_columns .= $column_key . " " . $type . " " .$default . $spacer . $not_null . "\n\t";
+		}
+
+		$table_keys = "PRIMARY KEY  (index_id)";
+
+		$sql = $this->format_table( $this->table_name, $table_columns, $table_keys );
+
+		$existing_columns = $this->table_exists($table_name) ? $wpdb->get_col("DESC {$table_name}", 0) : false;
+
+		$new_columns = array_keys($columns);
+
+		//set index id to ensure it doesn't get dropped after the diff
+		$new_columns[] = 'index_id';
+
+		$columns_drop = array_diff($existing_columns, $new_columns);
+
+		if( !empty($columns_drop) )
+			/**
+			 * @todo look at efficient ways to drop columns
+			 * @see http://stackoverflow.com/questions/23173789/mysql-drop-column-from-large-table#answer-23173871
+			 */
+			$wpdb->query("ALTER TABLE {$table_name} DROP COLUMN ".implode(', DROP COLUMN ',$columns_drop).';');
 
 		dbDelta( $sql );
 
 		update_option( $this->table_name . '_db_version', $this->version );
 	}
+
+	/**
+	 * @param $id
+	 *
+	 * @return string
+	 */
+	private function get_field_type( $id ) {
+
+		switch ( $id ):
+			case 'post_id':
+			case 'currency':
+			case 'payment_status':
+			case 'payment_date':
+			case 'payment_amount':
+			case 'payment_method':
+			case 'transaction_id':
+			case 'is_fulfilled':
+			case 'created_by':
+			case 'transaction_type':
+				$field_type = null;
+				break;
+			case 'is_starred':
+			case 'is_read':
+				$field_type = 0;
+				break;
+			case 'id':
+			case 'ip':
+			case 'date_created':
+				$field_type = 'None';
+				break;
+			case 'source_url':
+			case 'user_agent':
+				$field_type = '';
+				break;
+			case 'status':
+				$field_type = 'active';
+				break;
+			default:
+				$field_type = '';
+		endswitch;
+
+		return (string) $field_type;
+	}
+
+	/**
+	 * @param $key
+	 *
+	 * @return bool|int|string
+	 * @internal param $value
+	 *
+	 */
+	private function generate_field_defaults( $key ) {
+		switch ( $key ):
+			case 'index_id':
+			case 'post_id':
+			case 'created_by':
+				$field_default = 'bigint(20)';
+				break;
+			case 'is_starred':
+			case 'is_read':
+			case 'is_fulfilled':
+			case 'transaction_type':
+				$field_default = 'tinyint(1)';
+				break;
+			case 'id':
+				$field_default = 'int(10)';
+				break;
+			case 'ip':
+				$field_default = 'varchar(39)';
+				break;
+			case 'source_url':
+				$field_default = 'varchar(200)';
+				break;
+			case 'user_agent':
+				$field_default = 'varchar(250)';
+				break;
+			case 'currency':
+				$field_default = 'varchar(5)';
+				break;
+			case 'payment_status':
+				$field_default = 'varchar(15)';
+				break;
+			case 'payment_amount':
+				$field_default = 'decimal(19.2)';
+				break;
+			case 'payment_method':
+				$field_default = 'varchar(30)';
+				break;
+			case 'transaction_id':
+				$field_default = 'varchar(50)';
+				break;
+			case 'status':
+				$field_default = 'varchar(20)';
+				break;
+			case 'payment_date':
+			case 'date_created':
+				$field_default = 'datetime';
+				break;
+			default:
+				$field_default = 'longtext';
+		endswitch;
+
+		return $field_default;
+	}
+
+	private function format_table( $table_name, $table_columns, $table_keys = null, $charset_collate = null ) {
+		global $wpdb;
+
+		if ( $charset_collate == null ) {
+			$charset_collate = $wpdb->get_charset_collate();
+		}
+
+		$table_columns = strtolower( $table_columns );
+
+		$table_structure = "( $table_columns $table_keys )";
+
+		$search_array  = array();
+		$replace_array = array();
+
+		$search_array[]  = "`";
+		$replace_array[] = "";
+
+		$table_structure = str_replace( $search_array, $replace_array, $table_structure );
+
+		$sql = "CREATE TABLE $table_name $table_structure $charset_collate;";
+
+		// Rather than executing an SQL query directly, we'll use the dbDelta function in wp-admin/includes/upgrade.php (we'll have to load this file, as it is not loaded by default)
+		require_once( ABSPATH . 'wp-admin/includes/upgrade.php' );
+
+		// The dbDelta function examines the current table structure, compares it to the desired table structure, and either adds or modifies the table as necessary
+		return $sql;
+	}
+
 }

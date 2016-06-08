@@ -76,6 +76,8 @@ function gvdt_alt_src_load() {
 			define( 'GVDT_ALT_SRC_DIR', plugin_dir_path( __FILE__ ) );
 
 			require_once GVDT_ALT_SRC_DIR . 'includes/class-gravityview-datatables-alt-data-src.php';
+			require_once GVDT_ALT_SRC_DIR . 'includes/class-gravityview-index-db.php';
+			require_once GVDT_ALT_SRC_DIR . 'includes/class-gravityview-datatables-index-db.php';
 
 			$this->dataSrc = GravityView_DataTables_Alt_DataSrc::get_instance();
 		}

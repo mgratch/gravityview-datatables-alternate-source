@@ -79,9 +79,9 @@ class GravityView_DataTables_Index_DB extends GravityView_Index_DB {
 	 * @since   1.0
 	 */
 	public function get_columns() {
-		$columns     = array_keys( $this->columns );
-		$columns     = array_combine( $columns, $columns );
-		$columns = array_map(array($this, 'get_field_type'), $columns);
+		$columns = array_keys( $this->columns );
+		$columns = array_combine( $columns, $columns );
+		$columns = array_map( array( $this, 'get_field_type' ), $columns );
 
 		return $columns;
 	}

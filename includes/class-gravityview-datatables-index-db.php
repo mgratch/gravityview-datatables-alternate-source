@@ -102,7 +102,7 @@ class GravityView_DataTables_Index_DB extends GravityView_Index_DB {
 			}
 		}
 
-		$field_type = gravityview_get_field_type( $this->view_data['form_id'], $col['id'] );
+		$field_type = gravityview_get_field_type( $this->view_data['form'], $col['id'] );
 
 		$label = $this->sanitize_column_label( $label );
 

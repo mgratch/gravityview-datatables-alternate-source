@@ -349,16 +349,49 @@ class GravityView_DataTables_Index_DB extends GravityView_Index_DB {
 
 		$columns_drop = array_diff( $existing_columns, $new_columns );
 
-		if ( ! empty( $columns_drop ) ) /**
-		 * @todo look at efficient ways to drop columns
-		 * @see http://stackoverflow.com/questions/23173789/mysql-drop-column-from-large-table#answer-23173871
-		 */ {
-			$wpdb->query( "ALTER TABLE {$table_name} DROP COLUMN " . implode( ', DROP COLUMN ', $columns_drop ) . ';' );
+		/**
+		 * if $existing_columns and $new_columns match do not update
+		 */
+
+		$dropped_colums = $columns_drop;
+
+		foreach ( $dropped_colums as $dropped_colum ) {
+			unset( $existing_columns[ $dropped_colum ] );
 		}
 
-		dbDelta( $sql );
+		$column_diff = array_diff( $new_columns, $existing_columns );
 
-		update_option( $this->table_name . '_db_version', $this->version );
+		if ( ! empty( $column_diff ) ) {
+			dbDelta( $sql );
+			update_option( $this->table_name . '_db_version', $this->version );
+		}
+		else {
+			remove_action( 'save_post', array( GravityView_DataTables_Alt_DataSrc::get_instance(), 'handle_all' ), 30 );
+		}
+
+		/**
+		 * Drop columns after updated the DB structure if needed
+		 */
+
+		if ( ! empty( $columns_drop ) ) {
+			/**
+			 * @todo look at efficient ways to drop columns
+			 * @see http://stackoverflow.com/questions/23173789/mysql-drop-column-from-large-table#answer-23173871
+			 */
+
+			$tmp_table_name = $table_name . "_tmp";
+
+			$tmp_col_copy = implode(", ", $new_columns);
+
+			$drop_sql     = <<<SQL
+			CREATE TABLE `$tmp_table_name` AS
+				SELECT `$tmp_col_copy`
+				FROM `$table_name`
+SQL;
+			$wpdb->query( $drop_sql );
+		}
+
+
 	}
 
 	/**

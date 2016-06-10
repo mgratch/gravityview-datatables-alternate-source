@@ -25,11 +25,14 @@ class GravityView_DataTables_Alt_DataSrc {
 
 		remove_all_actions( 'wp_ajax_gv_datatables_data', 10 );
 		remove_all_actions( 'wp_ajax_nopriv_gv_datatables_data', 10 );
+		//add_filter( 'gravityview_use_cache', '__return_false' );
+		add_filter( 'gravityview_field_entry_value', array( $this, 'format_entry_value_array' ), 10, 4 );
 		add_filter( 'gravityview_datatables_js_options', array(
 			$this,
 			'change_gravityview_datatables_source'
 		), 9999, 3 );
-		add_action( 'save_post', array( $this, 'generate_index_table' ) );
+		add_action( 'save_post', array( $this, 'generate_index_table' ), 20 );
+		add_action( 'save_post', array( $this, 'handle_all' ), 30 );
 	}
 
 	/**
@@ -69,8 +72,7 @@ class GravityView_DataTables_Alt_DataSrc {
 	private function get_view_data( $view_id ) {
 		global $gravityview_view;
 
-		$view_data           = gravityview_get_current_view_data( $view_id );
-		$gravityview_view    = new GravityView_View( $view_data );
+		$view_data = GravityView_View_Data::getInstance()->get_view( $view_id );
 
 		// Prevent error output
 		ob_start();
@@ -80,14 +82,9 @@ class GravityView_DataTables_Alt_DataSrc {
 
 		// include some frontend logic
 		if ( class_exists( 'GravityView_Plugin' ) && ! class_exists( 'GravityView_View' ) ) {
-			GravityView_Plugin::getInstance()->frontend_actions();
+			GravityView_Plugin::getInstance()->frontend_actions( true );
 		}
 
-		// create the view object based on the post_id
-		$GravityView_View_Data = GravityView_View_Data::getInstance( (int) $gravityview_view->post_id );
-
-		// get the view data
-		$view_data               = $GravityView_View_Data->get_view( $view_id );
 		$view_data['atts']['id'] = $view_id;
 
 		$atts = $view_data['atts'];
@@ -159,7 +156,7 @@ class GravityView_DataTables_Alt_DataSrc {
 					// Loop through each column and set the value of the column to the field value
 					if ( ! empty( $view_data['fields']['directory_table-columns'] ) ) {
 						foreach ( $view_data['fields']['directory_table-columns'] as $field_settings ) {
-							$temp[] = GravityView_API::field_value( $entry, $field_settings );
+							$temp = array_merge( $temp, GravityView_API::field_value( $entry, $field_settings ) );
 						}
 					}
 
@@ -213,6 +210,57 @@ class GravityView_DataTables_Alt_DataSrc {
 
 		$gravityview_view_DT = new GravityView_DataTables_Index_DB( $post_id );
 		$gravityview_view_DT->create_table();
+	}
+
+	/**
+	 * Process handler
+	 */
+	public function process_handler() {
+		if ( ! isset( $_GET['process'] ) || ! isset( $_GET['_wpnonce'] ) ) {
+			return;
+		}
+		if ( ! wp_verify_nonce( $_GET['_wpnonce'], 'process' ) ) {
+			return;
+		}
+		if ( 'single' === $_GET['process'] ) {
+			$this->handle_single();
+		}
+		if ( 'all' === $_GET['process'] ) {
+			$this->handle_all();
+		}
+	}
+
+	/**
+	 * Handle single
+	 */
+	protected function handle_single() {
+		$names = $this->get_names();
+		$rand  = array_rand( $names, 1 );
+		$name  = $names[ $rand ];
+		wp_queue( new WP_Example_Job( $name ), MINUTE_IN_SECONDS );
+	}
+
+	/**
+	 * Handle all
+	 *
+	 * @param $view_id
+	 */
+	public function handle_all( $view_id ) {
+		$entries = $this->get_view_data( $view_id );
+		$entries = $entries['data'];
+		foreach ( $entries as $entry ) {
+			wp_queue( new WP_Example_Job( $entry, $view_id ) );
+		}
+	}
+
+	public function format_entry_value_array( $output, $entry, $field_settings, $current_field ) {
+		$key = is_numeric( $current_field['field_id'] ) ? 'field_' . $current_field['field_id'] : $current_field['field_id'];
+
+		if ("date_created" === $key){
+			$output = $entry[$key];
+		}
+
+		return array( $key => $output );
 	}
 
 

@@ -7,7 +7,7 @@
  * Text Domain: gravityview-datatables-alternate-source
  * License:     GPLv2 or later
  * License URI: http://www.gnu.org/licenses/gpl-2.0.html
- * Domain Path:	/languages
+ * Domain Path:    /languages
  * Author:      Katz Web Services, Inc.
  * Author URI:  https://gravityview.co
  */
@@ -73,11 +73,14 @@ function gvdt_alt_src_load() {
 			define( 'GVDT_ALT_SRC_FILE', __FILE__ );
 
 			/** @define "GVDT_ALT_SRC_DIR" "./" The absolute path to the plugin directory */
-			define( 'GVDT_ALT_SRC_DIR', plugin_dir_path( __FILE__ ) );
+			if ( ! defined('GVDT_ALT_SRC_DIR') ){
+				define( 'GVDT_ALT_SRC_DIR', plugin_dir_path( __FILE__ ) );
+			}
 
 			require_once GVDT_ALT_SRC_DIR . 'includes/class-gravityview-datatables-alt-data-src.php';
 			require_once GVDT_ALT_SRC_DIR . 'includes/class-gravityview-index-db.php';
 			require_once GVDT_ALT_SRC_DIR . 'includes/class-gravityview-datatables-index-db.php';
+			require_once GVDT_ALT_SRC_DIR . 'includes/class-gravityview-background-processing.php';
 
 			$this->dataSrc = GravityView_DataTables_Alt_DataSrc::get_instance();
 		}
@@ -93,8 +96,64 @@ function gvdt_alt_src_load() {
 
 			return self::$instance;
 		}
-
 	}
 
 	GravityView_DataTables_Alt::get_instance();
 }
+
+/**
+ * Creates the queue tables if they don't exist yet.
+ *
+ * @subcommand create-tables
+ */
+function create_tables() {
+
+	/** @define "GVDT_ALT_SRC_DIR" "./" The absolute path to the plugin directory */
+	if ( ! defined('GVDT_ALT_SRC_DIR') ){
+		define( 'GVDT_ALT_SRC_DIR', plugin_dir_path( __FILE__ ) );
+	}
+
+	require_once GVDT_ALT_SRC_DIR . 'includes/class-gravityview-index-db.php';
+	require_once GVDT_ALT_SRC_DIR . 'includes/class-gravityview-datatables-index-db.php';
+
+	global $wpdb;
+
+	$index_db = new GravityView_DataTables_Index_DB;
+
+	require_once( ABSPATH . 'wp-admin/includes/upgrade.php' );
+
+
+	$wpdb->hide_errors();
+
+	$charset_collate = $wpdb->get_charset_collate();
+
+	if ( ! $index_db->table_exists( $wpdb->prefix . 'queue' ) ):
+
+		$sql = "CREATE TABLE {$wpdb->prefix}queue (
+				id bigint(20) NOT NULL AUTO_INCREMENT,
+                job text NOT NULL,
+                attempts tinyint(1) NOT NULL DEFAULT 0,
+                locked tinyint(1) NOT NULL DEFAULT 0,
+                locked_at datetime DEFAULT NULL,
+                available_at datetime NOT NULL,
+                created_at datetime NOT NULL,
+                PRIMARY KEY  (id)
+				) $charset_collate;";
+
+		dbDelta( $sql );
+
+	endif;
+	if ( ! $index_db->table_exists( $wpdb->prefix . 'failed_jobs' ) ):
+
+		$sql = "CREATE TABLE {$wpdb->prefix}failed_jobs (
+				id bigint(20) NOT NULL AUTO_INCREMENT,
+                job text NOT NULL,
+                failed_at datetime NOT NULL,
+                PRIMARY KEY  (id)
+				) $charset_collate;";
+
+		dbDelta( $sql );
+	endif;
+}
+
+register_activation_hook( __FILE__, 'create_tables' );

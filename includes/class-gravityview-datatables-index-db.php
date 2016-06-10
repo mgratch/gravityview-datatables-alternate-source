@@ -51,16 +51,20 @@ class GravityView_DataTables_Index_DB extends GravityView_Index_DB {
 	 *
 	 * @param int $view_id
 	 */
-	public function __construct( $view_id ) {
+	public function __construct( $view_id = null ) {
 
 		global $wpdb;
 
 		$this->view_id = null == $view_id ? '' : $view_id;
 		$table_suffix  = '' == $view_id ? '' : "_" . $view_id;
 
+
 		$this->view_data = GravityView_View_Data::getInstance()->get_view( $view_id );
-		$columns         = $this->view_data['fields']['directory_table-columns'];
-		array_map( array( &$this, 'build_columns_array' ), $columns );
+
+		if ( $this->view_data ) {
+			$columns = $this->view_data['fields']['directory_table-columns'];
+			array_map( array( &$this, 'build_columns_array' ), $columns );
+		}
 
 		$this->table_name  = $wpdb->prefix . 'gv_index' . $table_suffix;
 		$this->primary_key = 'index_id';
@@ -75,7 +79,11 @@ class GravityView_DataTables_Index_DB extends GravityView_Index_DB {
 	 * @since   1.0
 	 */
 	public function get_columns() {
-		return $this->columns;
+		$columns     = array_keys( $this->columns );
+		$columns     = array_combine( $columns, $columns );
+		$columns = array_map(array($this, 'get_field_type'), $columns);
+
+		return $columns;
 	}
 
 	/**
@@ -89,7 +97,7 @@ class GravityView_DataTables_Index_DB extends GravityView_Index_DB {
 			for ( $i = 0; $i < count( $this->columns ); $i ++ ) {
 				if ( ! isset( $this->columns[ $label . "_{$i}" ] ) ) {
 					$label = $label . "_{$i}";
-					continue;
+					break;
 				}
 			}
 		}
@@ -98,7 +106,7 @@ class GravityView_DataTables_Index_DB extends GravityView_Index_DB {
 
 		$label = $this->sanitize_column_label( $label );
 
-		$this->columns[ $label ] = null !== $field_type ? $field_type : $this->get_field_type( $col['id'] );
+		$this->columns[ $label ] = null !== $field_type ? $field_type : $this->get_field_default( $col['id'] );
 	}
 
 	/**
@@ -132,7 +140,7 @@ class GravityView_DataTables_Index_DB extends GravityView_Index_DB {
 	 * @since   1.0
 	 */
 	public function get_column_defaults() {
-		return $this->get_columns();
+		return $this->columns;
 	}
 
 	/**
@@ -303,7 +311,7 @@ class GravityView_DataTables_Index_DB extends GravityView_Index_DB {
 
 		$table_name = $this->table_name;
 
-		$columns = $this->get_columns();
+		$columns = $this->get_column_defaults();
 
 		if ( ! isset( $columns['id'] ) ) {
 			$columns['id'] = 0;
@@ -315,38 +323,38 @@ class GravityView_DataTables_Index_DB extends GravityView_Index_DB {
 		$table_columns .= "\n\t";
 
 		foreach ( $columns as $column_key => $value ) {
-			$type  = $this->generate_field_defaults( $column_key );
+			$type    = $this->generate_column_schema( $column_key );
 			$default = '' === $value ? '""' : $value;
 
 			/**
 			 * determine if we need a space
 			 */
-			$spacer   = "None" !== $default ? ' ' : '';
+			$spacer = "None" !== $default ? ' ' : '';
 
 			$default  = "None" === $default ? '' : "DEFAULT $default";
 			$not_null = null === $default ? ',' : 'NOT NULL,';
-			$table_columns .= $column_key . " " . $type . " " .$default . $spacer . $not_null . "\n\t";
+			$table_columns .= $column_key . " " . $type . " " . $default . $spacer . $not_null . "\n\t";
 		}
 
 		$table_keys = "PRIMARY KEY  (index_id)";
 
 		$sql = $this->format_table( $this->table_name, $table_columns, $table_keys );
 
-		$existing_columns = $this->table_exists($table_name) ? $wpdb->get_col("DESC {$table_name}", 0) : false;
+		$existing_columns = $this->table_exists( $table_name ) ? $wpdb->get_col( "DESC {$table_name}", 0 ) : false;
 
-		$new_columns = array_keys($columns);
+		$new_columns = array_keys( $columns );
 
 		//set index id to ensure it doesn't get dropped after the diff
 		$new_columns[] = 'index_id';
 
-		$columns_drop = array_diff($existing_columns, $new_columns);
+		$columns_drop = array_diff( $existing_columns, $new_columns );
 
-		if( !empty($columns_drop) )
-			/**
-			 * @todo look at efficient ways to drop columns
-			 * @see http://stackoverflow.com/questions/23173789/mysql-drop-column-from-large-table#answer-23173871
-			 */
-			$wpdb->query("ALTER TABLE {$table_name} DROP COLUMN ".implode(', DROP COLUMN ',$columns_drop).';');
+		if ( ! empty( $columns_drop ) ) /**
+		 * @todo look at efficient ways to drop columns
+		 * @see http://stackoverflow.com/questions/23173789/mysql-drop-column-from-large-table#answer-23173871
+		 */ {
+			$wpdb->query( "ALTER TABLE {$table_name} DROP COLUMN " . implode( ', DROP COLUMN ', $columns_drop ) . ';' );
+		}
 
 		dbDelta( $sql );
 
@@ -358,7 +366,7 @@ class GravityView_DataTables_Index_DB extends GravityView_Index_DB {
 	 *
 	 * @return string
 	 */
-	private function get_field_type( $id ) {
+	private function get_field_default( $id ) {
 
 		switch ( $id ):
 			case 'post_id':
@@ -403,7 +411,7 @@ class GravityView_DataTables_Index_DB extends GravityView_Index_DB {
 	 * @internal param $value
 	 *
 	 */
-	private function generate_field_defaults( $key ) {
+	private function generate_column_schema( $key ) {
 		switch ( $key ):
 			case 'index_id':
 			case 'post_id':
@@ -457,6 +465,45 @@ class GravityView_DataTables_Index_DB extends GravityView_Index_DB {
 		return $field_default;
 	}
 
+	/**
+	 * @param $key
+	 *
+	 * @return string
+	 * @internal param $id
+	 *
+	 */
+	private function get_field_type( $key ) {
+
+		switch ( $key ):
+			case 'post_id':
+			case 'created_by':
+			case 'is_starred':
+			case 'is_read':
+			case 'is_fulfilled':
+			case 'transaction_type':
+			case 'id':
+				$field_default = '%d';
+				break;
+			case 'payment_amount':
+				$field_default = '%f';
+				break;
+			case 'ip':
+			case 'source_url':
+			case 'user_agent':
+			case 'currency':
+			case 'payment_status':
+			case 'payment_method':
+			case 'transaction_id':
+			case 'status':
+			case 'payment_date':
+			case 'date_created':
+			default:
+				$field_default = '%s';
+		endswitch;
+
+		return (string) $field_default;
+	}
+
 	private function format_table( $table_name, $table_columns, $table_keys = null, $charset_collate = null ) {
 		global $wpdb;
 
@@ -483,6 +530,10 @@ class GravityView_DataTables_Index_DB extends GravityView_Index_DB {
 
 		// The dbDelta function examines the current table structure, compares it to the desired table structure, and either adds or modifies the table as necessary
 		return $sql;
+	}
+
+	public function insert( $data, $type = '' ) {
+		return parent::insert( $data, $type );
 	}
 
 }

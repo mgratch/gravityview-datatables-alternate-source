@@ -1,6 +1,6 @@
 <?php
 
-if (! class_exists("WP_Job")){
+if ( ! class_exists( "WP_Job" ) ) {
 	return;
 }
 
@@ -17,14 +17,28 @@ class WP_Example_Job extends WP_Job {
 	protected $view_id;
 
 	/**
+	 * @var string
+	 */
+	protected $args;
+
+	/**
+	 * @var string
+	 */
+	protected $context;
+
+	/**
 	 * WP_Example_Job constructor.
 	 *
 	 * @param $entry
 	 * @param $view_id
+	 * @param array $args
+	 * @param string $context
 	 */
-	public function __construct( $entry, $view_id ) {
-		$this->entry    = $entry;
+	public function __construct( $entry = null, $view_id = null, $args = array(), $context = '' ) {
+		$this->entry   = $entry;
 		$this->view_id = $view_id;
+		$this->args = $args;
+		$this->context = $context;
 	}
 
 	/**
@@ -41,17 +55,38 @@ class WP_Example_Job extends WP_Job {
 	 */
 	public function handle() {
 
-		$processor = new GravityView_DataTables_Index_DB($this->view_id);
+		$processor = new GravityView_DataTables_Index_DB( $this->view_id );
 
-		
+		if ( null !== $this->entry ) {
+			$processor->insert( $this->entry );
+		} elseif ( null !== $this->view_id && 'sync-all' === $this->context) {
 
-		
-		$processor->insert($this->entry);
+			$form_id     = gravityview_get_form_id( $this->view_id );
+			$entry_count = GFAPI::count_entries( $form_id );
 
-		$message = $this->get_message( $this->entry );
+			$page_count = intval( $entry_count ) / 250;
+			$args       = array();
 
-		$this->really_long_running_task();
-		$this->log( $message );
+			$offset = get_transient( "gv_index_" . $this->view_id );
+			$offset = false !== $offset ? $offset : 0;
+
+			for ( $i = 0; $i < $page_count; $i ++ ) {
+				$args['offset'] = max( $i * 250, $offset );
+				wp_queue( new WP_Example_Job( null, $this->view_id, $args, 'sync-group' ) );
+				set_transient( "gv_index_" . $this->view_id, $args['offset'] );
+			}
+
+		} elseif ( null !== $this->view_id && 'sync-group' === $this->context) {
+			$src         = GravityView_DataTables_Alt_DataSrc::get_instance();
+			$entries        = $src->get_view_data( $this->args, $this->view_id );
+
+			$entries = $entries['data'];
+			foreach ( $entries as $entry ) {
+				$processor->insert( $entry );
+				$this->log( "inserted: " . $entry['id'] );
+			}
+
+		}
 	}
 
 	/**

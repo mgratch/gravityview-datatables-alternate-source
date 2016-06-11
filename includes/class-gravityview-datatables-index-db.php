@@ -102,11 +102,9 @@ class GravityView_DataTables_Index_DB extends GravityView_Index_DB {
 			}
 		}
 
-		$field_type = gravityview_get_field_type( $this->view_data['form'], $col['id'] );
-
 		$label = $this->sanitize_column_label( $label );
 
-		$this->columns[ $label ] = null !== $field_type ? $field_type : $this->get_field_default( $col['id'] );
+		$this->columns[ $label ] = $this->get_field_default( $col['id'] );
 	}
 
 	/**
@@ -340,7 +338,7 @@ class GravityView_DataTables_Index_DB extends GravityView_Index_DB {
 
 		$sql = $this->format_table( $this->table_name, $table_columns, $table_keys );
 
-		$existing_columns = $this->table_exists( $table_name ) ? $wpdb->get_col( "DESC {$table_name}", 0 ) : false;
+		$existing_columns = $this->table_exists( $table_name ) ? $wpdb->get_col( "DESC {$table_name}", 0 ) : array();
 
 		$new_columns = array_keys( $columns );
 
@@ -352,11 +350,12 @@ class GravityView_DataTables_Index_DB extends GravityView_Index_DB {
 		/**
 		 * if $existing_columns and $new_columns match do not update
 		 */
+		$dropped_columns = $columns_drop;
 
-		$dropped_colums = $columns_drop;
-
-		foreach ( $dropped_colums as $dropped_colum ) {
-			unset( $existing_columns[ $dropped_colum ] );
+		if (! empty($dropped_columns)){
+			foreach ( $dropped_columns as $dropped_column ) {
+				unset( $existing_columns[ $dropped_column ] );
+			}
 		}
 
 		$column_diff = array_diff( $new_columns, $existing_columns );
@@ -364,8 +363,7 @@ class GravityView_DataTables_Index_DB extends GravityView_Index_DB {
 		if ( ! empty( $column_diff ) ) {
 			dbDelta( $sql );
 			update_option( $this->table_name . '_db_version', $this->version );
-		}
-		else {
+		} else {
 			remove_action( 'save_post', array( GravityView_DataTables_Alt_DataSrc::get_instance(), 'handle_all' ), 30 );
 		}
 
@@ -379,16 +377,32 @@ class GravityView_DataTables_Index_DB extends GravityView_Index_DB {
 			 * @see http://stackoverflow.com/questions/23173789/mysql-drop-column-from-large-table#answer-23173871
 			 */
 
-			$tmp_table_name = $table_name . "_tmp";
+			$tmp_table_name  = $table_name . "_tmp";
+			$drop_table_name = $table_name . "_drop";
 
-			$tmp_col_copy = implode(", ", $new_columns);
+			$tmp_col_copy = implode( ",", $new_columns );
 
-			$drop_sql     = <<<SQL
+			$create_tmp_table = <<<SQL
 			CREATE TABLE `$tmp_table_name` AS
-				SELECT `$tmp_col_copy`
-				FROM `$table_name`
+				SELECT $table_name
+				FROM $tmp_col_copy
 SQL;
-			$wpdb->query( $drop_sql );
+			$wpdb->query( $create_tmp_table );
+
+			$rename_curr_table = <<<SQL
+			ALTER TABLE `$table_name` RENAME `$drop_table_name`			
+SQL;
+			$wpdb->query( $rename_curr_table );
+
+			$rename_new_table = <<<SQL
+			ALTER TABLE `$tmp_table_name` RENAME `$table_name`
+SQL;
+			$wpdb->query( $rename_new_table );
+
+			$drop_old_table = <<<SQL
+			DROP TABLE `$drop_table_name`
+SQL;
+			$wpdb->query( $drop_old_table );
 		}
 
 
@@ -434,7 +448,7 @@ SQL;
 				$field_type = '';
 		endswitch;
 
-		return (string) $field_type;
+		return $field_type;
 	}
 
 	/**

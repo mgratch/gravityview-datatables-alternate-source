@@ -25,7 +25,7 @@ class GravityView_DataTables_Alt_DataSrc {
 
 		remove_all_actions( 'wp_ajax_gv_datatables_data', 10 );
 		remove_all_actions( 'wp_ajax_nopriv_gv_datatables_data', 10 );
-		//add_filter( 'gravityview_use_cache', '__return_false' );
+		add_filter( 'gravityview_use_cache', '__return_false' );
 		add_filter( 'gravityview_field_entry_value', array( $this, 'format_entry_value_array' ), 10, 4 );
 		add_filter( 'gravityview_datatables_js_options', array(
 			$this,
@@ -69,7 +69,7 @@ class GravityView_DataTables_Alt_DataSrc {
 
 	}
 
-	private function get_view_data( $view_id ) {
+	public function get_view_data( $atts = array(), $view_id ) {
 		global $gravityview_view;
 
 		$view_data = GravityView_View_Data::getInstance()->get_view( $view_id );
@@ -87,7 +87,7 @@ class GravityView_DataTables_Alt_DataSrc {
 
 		$view_data['atts']['id'] = $view_id;
 
-		$atts = $view_data['atts'];
+		$atts = wp_parse_args( $atts, $view_data['atts'] );
 
 		// prepare to get entries
 		$atts = wp_parse_args( $atts, GravityView_View_Data::get_default_args() );
@@ -138,7 +138,9 @@ class GravityView_DataTables_Alt_DataSrc {
 			/**
 			 * @todo remove this when ajax is enabled
 			 */
-			$atts['page_size'] = '-1';
+			$page_size         = $gravityview_view->getAtts( 'page_size' );
+			$atts['page_size'] = '250';
+			$atts['offset']    = isset( $atts['offset'] ) ? intval( $atts['offset'] ) : 0;
 
 			$view_entries = GravityView_frontend::get_view_entries( $atts, $view_data['form_id'] );
 
@@ -246,18 +248,15 @@ class GravityView_DataTables_Alt_DataSrc {
 	 * @param $view_id
 	 */
 	public function handle_all( $view_id ) {
-		$entries = $this->get_view_data( $view_id );
-		$entries = $entries['data'];
-		foreach ( $entries as $entry ) {
-			wp_queue( new WP_Example_Job( $entry, $view_id ) );
-		}
+		delete_transient( "gv_index_" . $view_id );
+		wp_queue( new WP_Example_Job( null, $view_id, array(), 'sync-all' ) );
 	}
 
 	public function format_entry_value_array( $output, $entry, $field_settings, $current_field ) {
 		$key = is_numeric( $current_field['field_id'] ) ? 'field_' . $current_field['field_id'] : $current_field['field_id'];
 
-		if ("date_created" === $key){
-			$output = $entry[$key];
+		if ( "date_created" === $key ) {
+			$output = $entry[ $key ];
 		}
 
 		return array( $key => $output );

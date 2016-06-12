@@ -380,12 +380,13 @@ class GravityView_DataTables_Index_DB extends GravityView_Index_DB {
 			$tmp_table_name  = $table_name . "_tmp";
 			$drop_table_name = $table_name . "_drop";
 
-			$tmp_col_copy = implode( ",", $new_columns );
+			//$tmp_col_copy = $table_name . ".";
+			$tmp_col_copy = implode( ", ", $new_columns );
 
 			$create_tmp_table = <<<SQL
 			CREATE TABLE `$tmp_table_name` AS
-				SELECT $table_name
-				FROM $tmp_col_copy
+				SELECT $tmp_col_copy
+				FROM $table_name
 SQL;
 			$wpdb->query( $create_tmp_table );
 

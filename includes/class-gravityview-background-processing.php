@@ -27,18 +27,25 @@ class WP_Example_Job extends WP_Job {
 	protected $context;
 
 	/**
+	 * @var array
+	 */
+	protected $new_columns;
+
+	/**
 	 * WP_Example_Job constructor.
 	 *
 	 * @param $entry
 	 * @param $view_id
 	 * @param array $args
 	 * @param string $context
+	 * @param array $new_columns
 	 */
-	public function __construct( $entry = null, $view_id = null, $args = array(), $context = '' ) {
-		$this->entry   = $entry;
-		$this->view_id = $view_id;
-		$this->args = $args;
-		$this->context = $context;
+	public function __construct( $entry = null, $view_id = null, $args = array(), $context = '', $new_columns = array() ) {
+		$this->entry       = $entry;
+		$this->view_id     = $view_id;
+		$this->args        = $args;
+		$this->context     = $context;
+		$this->new_columns = $new_columns;
 	}
 
 	/**
@@ -48,6 +55,12 @@ class WP_Example_Job extends WP_Job {
 	 * queue item. Return the modified item for further processing
 	 * in the next pass through. Or, return false to remove the
 	 * item from the queue.
+	 *
+	 * THIS IS CURRENTLY USING THE MAGIC NUMBER OF 250
+	 *
+	 * @todo identify largest packet size usable for the current environment
+	 * @see \WPMDB_Base::get_bottleneck
+	 *
 	 * @return mixed
 	 * @throws Exception
 	 * @internal param mixed $item Queue item to iterate over
@@ -55,16 +68,27 @@ class WP_Example_Job extends WP_Job {
 	 */
 	public function handle() {
 
+		global $wpdb;
+
 		$processor = new GravityView_DataTables_Index_DB( $this->view_id );
 
 		if ( null !== $this->entry ) {
 			$processor->insert( $this->entry );
-		} elseif ( null !== $this->view_id && 'sync-all' === $this->context) {
+		} elseif ( null !== $this->view_id && 'sync-all' === $this->context ) {
 
-			$form_id     = gravityview_get_form_id( $this->view_id );
+			$form_id = gravityview_get_form_id( $this->view_id );
+
+			if ( empty( $form_id ) ) {
+				return false;
+			}
+
 			$entry_count = GFAPI::count_entries( $form_id );
 
-			$page_count = intval( $entry_count ) / 250;
+			if ( ! $entry_count ) {
+				return false;
+			}
+
+			$page_count = ceil(intval( $entry_count ) / 250);
 			$args       = array();
 
 			$offset = get_transient( "gv_index_" . $this->view_id );
@@ -72,18 +96,22 @@ class WP_Example_Job extends WP_Job {
 
 			for ( $i = 0; $i < $page_count; $i ++ ) {
 				$args['offset'] = max( $i * 250, $offset );
-				wp_queue( new WP_Example_Job( null, $this->view_id, $args, 'sync-group' ) );
+				wp_queue( new WP_Example_Job( null, $this->view_id, $args, 'sync-group', $this->new_columns ) );
 				set_transient( "gv_index_" . $this->view_id, $args['offset'] );
 			}
 
-		} elseif ( null !== $this->view_id && 'sync-group' === $this->context) {
-			$src         = GravityView_DataTables_Alt_DataSrc::get_instance();
-			$entries        = $src->get_view_data( $this->args, $this->view_id );
+		} elseif ( null !== $this->view_id && 'sync-group' === $this->context ) {
+			$src     = GravityView_DataTables_Alt_DataSrc::get_instance();
+			$entries = $src->get_view_data( $this->args, $this->view_id );
+
+			if ( ! $entries ) {
+				return false;
+			}
 
 			$entries = $entries['data'];
 			foreach ( $entries as $entry ) {
-				$processor->insert( $entry );
-				$this->log( "inserted: " . $entry['id'] );
+				$result = $processor->update_index( $entry, $this->new_columns );
+				$this->log( "inserted: " . boolval($result) . "\n\t" . $wpdb->last_error );
 			}
 
 		}

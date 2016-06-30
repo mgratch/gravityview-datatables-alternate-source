@@ -12,7 +12,7 @@
  * Author URI:  https://gravityview.co
  */
 
-add_action( 'gravityview_include_backend_actions', 'gvdt_alt_src_load', 30 );
+add_action( 'plugins_loaded', 'gvdt_alt_src_load', 10 );
 
 /**
  * Wrapper function to make sure GravityView_Extension has loaded

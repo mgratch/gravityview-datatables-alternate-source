@@ -70,7 +70,10 @@ abstract class GravityView_Index_DB {
 	 *
 	 * @access  public
 	 * @since  1.0
-	 * @return  object
+	 *
+	 * @param $row_id
+	 *
+	 * @return object
 	 */
 	public function get( $row_id ) {
 		global $wpdb;
@@ -82,7 +85,11 @@ abstract class GravityView_Index_DB {
 	 *
 	 * @access  public
 	 * @since  1.0
-	 * @return  object
+	 *
+	 * @param $column
+	 * @param $row_id
+	 *
+	 * @return object
 	 */
 	public function get_by( $column, $row_id ) {
 		global $wpdb;
@@ -95,7 +102,11 @@ abstract class GravityView_Index_DB {
 	 *
 	 * @access  public
 	 * @since  1.0
-	 * @return  string
+	 *
+	 * @param $column
+	 * @param $row_id
+	 *
+	 * @return string
 	 */
 	public function get_column( $column, $row_id ) {
 		global $wpdb;
@@ -108,7 +119,12 @@ abstract class GravityView_Index_DB {
 	 *
 	 * @access  public
 	 * @since  1.0
-	 * @return  string
+	 *
+	 * @param $column
+	 * @param $column_where
+	 * @param $column_value
+	 *
+	 * @return string
 	 */
 	public function get_column_by( $column, $column_where, $column_value ) {
 		global $wpdb;
@@ -122,7 +138,11 @@ abstract class GravityView_Index_DB {
 	 *
 	 * @access  public
 	 * @since  1.0
-	 * @return  int
+	 *
+	 * @param $data
+	 * @param string $type
+	 *
+	 * @return int
 	 */
 	public function insert( $data, $type = '' ) {
 		global $wpdb;
@@ -157,7 +177,12 @@ abstract class GravityView_Index_DB {
 	 *
 	 * @access  public
 	 * @since  1.0
-	 * @return  bool
+	 *
+	 * @param $row_id
+	 * @param array $data
+	 * @param string $where
+	 *
+	 * @return bool
 	 */
 	public function update( $row_id, $data = array(), $where = '' ) {
 
@@ -199,7 +224,10 @@ abstract class GravityView_Index_DB {
 	 *
 	 * @access  public
 	 * @since  1.0
-	 * @return  bool
+	 *
+	 * @param int $row_id
+	 *
+	 * @return bool
 	 */
 	public function delete( $row_id = 0 ) {
 

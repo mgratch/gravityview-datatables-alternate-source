@@ -58,16 +58,20 @@ class GravityView_DataTables_Index_DB extends GravityView_Index_DB {
 		$this->view_id = null == $view_id ? '' : $view_id;
 		$table_suffix  = '' == $view_id ? '' : "_" . $view_id;
 
+		$GravityView_Admin = new GravityView_Admin($view_id);
+		$GravityView_Admin->backend_actions();
 
-		$this->view_data = GravityView_View_Data::getInstance()->get_view( $view_id );
+		$this->view_data = GravityView_View_Data::getInstance($view_id)->get_view( $view_id );
 
 		if ( $this->view_data ) {
 			$columns = $this->view_data['fields']['directory_table-columns'];
 			array_map( array( &$this, 'build_columns_array' ), $columns );
+		} else {
+			return;
 		}
 
 		$this->table_name  = $wpdb->prefix . 'gv_index' . $table_suffix;
-		$this->primary_key = 'index_id';
+		$this->primary_key = 'id';
 		$this->version     = '1.0';
 
 	}
@@ -163,7 +167,7 @@ class GravityView_DataTables_Index_DB extends GravityView_Index_DB {
 		$args = wp_parse_args( $args, $defaults );
 
 		if ( $args['number'] < 1 ) {
-			$args['number'] = 999999999999;
+			$args['number'] = PHP_INT_MAX;
 		}
 
 		$where = '';
@@ -311,6 +315,10 @@ class GravityView_DataTables_Index_DB extends GravityView_Index_DB {
 
 		$columns = $this->get_column_defaults();
 
+		if (empty($columns)){
+			return false;
+		}
+
 		if ( ! isset( $columns['id'] ) ) {
 			$columns['id'] = 0;
 		}
@@ -334,7 +342,8 @@ class GravityView_DataTables_Index_DB extends GravityView_Index_DB {
 			$table_columns .= $column_key . " " . $type . " " . $default . $spacer . $not_null . "\n\t";
 		}
 
-		$table_keys = "PRIMARY KEY  (index_id)";
+		$table_keys = "PRIMARY KEY  (id),\n\t";
+		$table_keys .= "KEY index_id (index_id)";
 
 		$sql = $this->format_table( $this->table_name, $table_columns, $table_keys );
 
@@ -352,7 +361,7 @@ class GravityView_DataTables_Index_DB extends GravityView_Index_DB {
 		 */
 		$dropped_columns = $columns_drop;
 
-		if (! empty($dropped_columns)){
+		if ( ! empty( $dropped_columns ) ) {
 			foreach ( $dropped_columns as $dropped_column ) {
 				unset( $existing_columns[ $dropped_column ] );
 			}
@@ -361,10 +370,13 @@ class GravityView_DataTables_Index_DB extends GravityView_Index_DB {
 		$column_diff = array_diff( $new_columns, $existing_columns );
 
 		if ( ! empty( $column_diff ) ) {
-			dbDelta( $sql );
+			$result = dbDelta( $sql );
+
+			if ( false !== $result ) {
+				$this->handle_all( $this->view_id, $new_columns );
+			}
+
 			update_option( $this->table_name . '_db_version', $this->version );
-		} else {
-			remove_action( 'save_post', array( GravityView_DataTables_Alt_DataSrc::get_instance(), 'handle_all' ), 30 );
 		}
 
 		/**
@@ -372,38 +384,52 @@ class GravityView_DataTables_Index_DB extends GravityView_Index_DB {
 		 */
 
 		if ( ! empty( $columns_drop ) ) {
-			/**
-			 * @todo look at efficient ways to drop columns
-			 * @see http://stackoverflow.com/questions/23173789/mysql-drop-column-from-large-table#answer-23173871
-			 */
 
 			$tmp_table_name  = $table_name . "_tmp";
 			$drop_table_name = $table_name . "_drop";
 
-			//$tmp_col_copy = $table_name . ".";
+			//store new columns array as a comma separated string
 			$tmp_col_copy = implode( ", ", $new_columns );
 
+			//Copy table and applicable columns
 			$create_tmp_table = <<<SQL
 			CREATE TABLE `$tmp_table_name` AS
 				SELECT $tmp_col_copy
 				FROM $table_name
 SQL;
-			$wpdb->query( $create_tmp_table );
+			$result           = $wpdb->query( $create_tmp_table );
 
+			if ( false === $result ) {
+				return false;
+			}
+
+			//prep old table for drop
 			$rename_curr_table = <<<SQL
 			ALTER TABLE `$table_name` RENAME `$drop_table_name`			
 SQL;
-			$wpdb->query( $rename_curr_table );
+			$result            = $wpdb->query( $rename_curr_table );
 
+			if ( false === $result ) {
+				return false;
+			}
+			//Make tmp table the new index table
 			$rename_new_table = <<<SQL
 			ALTER TABLE `$tmp_table_name` RENAME `$table_name`
 SQL;
-			$wpdb->query( $rename_new_table );
+			$result           = $wpdb->query( $rename_new_table );
 
+			if ( false === $result ) {
+				return false;
+			}
+			//Drop the old index table
 			$drop_old_table = <<<SQL
 			DROP TABLE `$drop_table_name`
 SQL;
-			$wpdb->query( $drop_old_table );
+			$result         = $wpdb->query( $drop_old_table );
+
+			if ( false === $result ) {
+				return false;
+			}
 		}
 
 
@@ -580,8 +606,83 @@ SQL;
 		return $sql;
 	}
 
-	public function insert( $data, $type = '' ) {
-		return parent::insert( $data, $type );
+	/**
+	 * @param $data
+	 * @param string $type
+	 * @param array $new_columns
+	 *
+	 * @return false|int
+	 */
+	public function update_index( $data, $type = '', $new_columns = array() ) {
+		global $wpdb;
+
+		// Set default values
+		$data = wp_parse_args( $data, $this->get_column_defaults() );
+
+		//do_action( 'edd_pre_insert_' . $type, $data );
+
+		// Initialise column format array
+		$column_formats = $this->get_columns();
+
+		// Force fields to lower case
+		$data = array_change_key_case( $data );
+
+		// White list columns
+		$data = array_intersect_key( $data, $column_formats );
+
+		// Reorder $column_formats to match the order of columns given in $data
+		$data_keys      = array_keys( $data );
+		$column_formats = array_merge( array_flip( $data_keys ), $column_formats );
+
+		$table_name     = $this->table_name;
+		$column_list    = implode( ", ", $data_keys );
+		$values         = implode( ", ", $data );
+		$column_formats = implode( ", ", $column_formats );
+		$new_data       = array_intersect_key( $data, $new_columns );
+		$new_values     = array();
+
+		foreach ( $new_data as $key => $val ) {
+			$new_values[] = "$key = $val";
+		}
+
+		$new_values = implode( ", ", $new_values );
+
+		if ( empty( $new_values ) ) {
+			$new_values = "id=id";
+		}
+
+
+		$update_index_table = "INSERT INTO `$table_name` ($column_list) VALUES ($column_formats) ON DUPLICATE KEY UPDATE $new_values";
+
+		$query = $wpdb->prepare( $update_index_table, $data );
+
+		$result = $wpdb->query( $query );
+
+		return $result;
+
+		//error_log( "inserted: " . boolval($result) . "\n\t" . $wpdb->last_error );
+
+		//do_action( 'edd_post_insert_' . $type, $wpdb->insert_id, $data );
 	}
+
+
+	/**
+	 * Handle all
+	 *
+	 * @param $view_id
+	 * @param array $new_columns
+	 */
+	public function handle_all( $view_id = null, $new_columns = array() ) {
+
+		$post = get_post( $view_id );
+
+
+		if ( 'gravityview' != $post->post_type ) {
+			return;
+		}
+		delete_transient( "gv_index_" . $view_id );
+		wp_queue( new WP_Example_Job( null, $view_id, array(), 'sync-all', $new_columns ) );
+	}
+
 
 }

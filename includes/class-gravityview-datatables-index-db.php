@@ -58,14 +58,20 @@ class GravityView_DataTables_Index_DB extends GravityView_Index_DB {
 		$this->view_id = null == $view_id ? '' : $view_id;
 		$table_suffix  = '' == $view_id ? '' : "_" . $view_id;
 
-		$GravityView_Admin = new GravityView_Admin($view_id);
+		$GravityView_Admin = new GravityView_Admin( $view_id );
 		$GravityView_Admin->backend_actions();
 
-		$this->view_data = GravityView_View_Data::getInstance($view_id)->get_view( $view_id );
+		$this->view_data = GravityView_View_Data::getInstance( $view_id )->get_view( $view_id );
 
 		if ( $this->view_data ) {
 			$columns = $this->view_data['fields']['directory_table-columns'];
 			array_map( array( &$this, 'build_columns_array' ), $columns );
+
+			//always make sure entry id is set
+			if ( ! isset( $this->columns['id'] ) ) {
+				$this->columns['id'] = "None";
+			}
+
 		} else {
 			return;
 		}
@@ -97,6 +103,10 @@ class GravityView_DataTables_Index_DB extends GravityView_Index_DB {
 
 		$label = is_numeric( $col['id'] ) ? "field_" . $col['id'] : $col['id'];
 
+		/**
+		 * If the field is already being called lets create a new column
+		 * @todo determine if this is useful
+		 */
 		if ( isset( $this->columns[ $label ] ) ) {
 			for ( $i = 0; $i < count( $this->columns ); $i ++ ) {
 				if ( ! isset( $this->columns[ $label . "_{$i}" ] ) ) {
@@ -315,20 +325,39 @@ class GravityView_DataTables_Index_DB extends GravityView_Index_DB {
 
 		$columns = $this->get_column_defaults();
 
-		if (empty($columns)){
+		if ( empty( $columns ) ) {
 			return false;
 		}
 
+		//always make sure entry id is set
 		if ( ! isset( $columns['id'] ) ) {
-			$columns['id'] = 0;
+			$columns['id'] = "None";
 		}
 
 
+		//index_id should always be the first column
 		$table_columns = "index_id bigint(20) NOT NULL AUTO_INCREMENT,";
 
 		$table_columns .= "\n\t";
 
+		//Entry ID should always be the second column
+		$type = $this->generate_column_schema( 'id' );
+
+		/**
+		 * determine if we need a space
+		 */
+		$spacer = '';
+
+		$default  = "";
+		$not_null = 'NOT NULL,';
+		$table_columns .= "id " . $type . " " . $default . $spacer . $not_null . "\n\t";
+
 		foreach ( $columns as $column_key => $value ) {
+
+			if ( 'id' === $column_key ) {
+				continue;
+			}
+
 			$type    = $this->generate_column_schema( $column_key );
 			$default = '' === $value ? '""' : $value;
 

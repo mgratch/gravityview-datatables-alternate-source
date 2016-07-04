@@ -82,6 +82,12 @@ class GravityView_DataTables_Alt_DataSrc {
 
 	}
 
+	/**
+	 * @param array $atts
+	 * @param $view_id
+	 *
+	 * @return array|bool|mixed|string
+	 */
 	public function get_view_data( $atts = array(), $view_id ) {
 		global $gravityview_view;
 
@@ -150,9 +156,8 @@ class GravityView_DataTables_Alt_DataSrc {
 		if ( ! isset( $output ) || empty( $output ) ) {
 
 			/**
-			 * @todo remove this when ajax is enabled
+			 * @todo Use Delicious Brain method to detect bottleneck and process at that point
 			 */
-			$page_size         = $gravityview_view->getAtts( 'page_size' );
 			$atts['page_size'] = '250';
 			$atts['offset']    = isset( $atts['offset'] ) ? intval( $atts['offset'] ) : 0;
 
@@ -169,10 +174,32 @@ class GravityView_DataTables_Alt_DataSrc {
 
 					$temp = array();
 
+					//Remove anonymizing field keys to prepare for `for` loop
+					$fields = array_values( $view_data['fields']['directory_table-columns'] );
+
 					// Loop through each column and set the value of the column to the field value
-					if ( ! empty( $view_data['fields']['directory_table-columns'] ) ) {
-						foreach ( $view_data['fields']['directory_table-columns'] as $field_settings ) {
-							$temp = array_merge( $temp, GravityView_API::field_value( $entry, $field_settings ) );
+					if ( ! empty( $fields ) ) {
+						for ( $i = 0; $i < count( $fields ); $i ++ ) {
+
+							/**
+							 * Entry ID is required as the second DB column
+							 * @todo this is probably unnecessary as arrays are always sorted numerically or alphabetically
+							 */
+							if ( 'id' === $fields[ $i ]['id'] ) {
+								$include_id = true;
+								$temp = $temp + array( 'id' => $entry['id'] );
+							} else {
+								$include_id = false;
+
+								//try not to store html
+								$fields[ $i ]['show_as_link'] = 0;
+								$temp       = array_merge( $temp, GravityView_API::field_value( $entry, $fields[ $i ] ) );
+							}
+
+							if ( count( $fields ) - 1 === $i && ! $include_id ) {
+								$temp = $temp + array( 'id' => $entry['id'] );
+							}
+
 						}
 					}
 
@@ -275,7 +302,7 @@ class GravityView_DataTables_Alt_DataSrc {
 	 */
 	public function create_table( $post_id, $atts ) {
 
-		if( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ){
+		if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) {
 			return;
 		}
 

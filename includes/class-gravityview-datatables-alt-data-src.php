@@ -179,7 +179,7 @@ class GravityView_DataTables_Alt_DataSrc {
 
 					// Loop through each column and set the value of the column to the field value
 					if ( ! empty( $fields ) ) {
-						for ( $i = 0; $i < count( $fields ); $i ++ ) {
+						for ( $i = 0, $c = 0; $i < count( $fields ); $i ++ ) {
 
 							/**
 							 * Entry ID is required as the second DB column
@@ -187,13 +187,18 @@ class GravityView_DataTables_Alt_DataSrc {
 							 */
 							if ( 'id' === $fields[ $i ]['id'] ) {
 								$include_id = true;
-								$temp = $temp + array( 'id' => $entry['id'] );
+								$temp       = $temp + array( 'id' => $entry['id'] );
 							} else {
 								$include_id = false;
 
 								//try not to store html
 								$fields[ $i ]['show_as_link'] = 0;
-								$temp       = array_merge( $temp, GravityView_API::field_value( $entry, $fields[ $i ] ) );
+								$temp                         = array_merge( $temp, GravityView_API::field_value( $entry, $fields[ $i ] ) );
+								if ( key_exists( 'custom', $temp ) ) {
+									$temp = array_merge( $temp, array( 'custom_' . $c => $temp['custom'] ) );
+									unset( $temp['custom'] );
+									$c ++;
+								}
 							}
 
 							if ( count( $fields ) - 1 === $i && ! $include_id ) {

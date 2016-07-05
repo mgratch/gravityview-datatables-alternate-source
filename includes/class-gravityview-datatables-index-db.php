@@ -107,7 +107,7 @@ class GravityView_DataTables_Index_DB extends GravityView_Index_DB {
 		 * If the field is already being called lets create a new column
 		 * @todo determine if this is useful
 		 */
-		if ( isset( $this->columns[ $label ] ) ) {
+		if ( isset( $this->columns[ $label ] ) || 'custom' === $label ) {
 			for ( $i = 0; $i < count( $this->columns ); $i ++ ) {
 				if ( ! isset( $this->columns[ $label . "_{$i}" ] ) ) {
 					$label = $label . "_{$i}";

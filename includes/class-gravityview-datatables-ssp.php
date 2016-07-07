@@ -10,26 +10,43 @@ class GravityView_DataTables_SSP {
 	/**
 	 * Create the data output array for the DataTables rows
 	 *
-	 *  @param  array $columns Column information array
-	 *  @param  array $data    Data from the SQL get
-	 *  @return array          Formatted data in a row based format
+	 * @param  array $columns Column information array
+	 * @param  array $data Data from the SQL get
+	 * @param $table
+	 *
+	 * @return array Formatted data in a row based format
+	 *
+	 * @todo Process GV Data i.e. links and custom content as well
 	 */
-	static function data_output ( $columns, $data )
-	{
+	static function data_output( $columns, $data, $table ) {
+		global $post;
 		$out = array();
 
-		for ( $i=0, $ien=count($data) ; $i<$ien ; $i++ ) {
+		for ( $i = 0, $ien = count( $data ); $i < $ien; $i ++ ) {
 			$row = array();
 
-			for ( $j=0, $jen=count($columns) ; $j<$jen ; $j++ ) {
-				$column = $columns[$j];
+			for ( $j = 0, $jen = count( $columns ); $j < $jen; $j ++ ) {
+				$column = $columns[ $j ];
+
+				if ( false !== strpos( $column['db'], 'custom_' ) ) {
+
+					$view_id = $post->ID;
+
+					$gravityview_directory_fields = get_post_meta( $view_id, '_gravityview_directory_fields', true );
+					$gravityview_directory_fields = array_values( $gravityview_directory_fields );
+					$gravityview_directory_fields = $gravityview_directory_fields[0];
+					$gravityview_directory_fields = array_values( $gravityview_directory_fields );
+					$field_setting                = $gravityview_directory_fields[ $j ];
+					$field_value                  = GravityView_API::field_value( GFAPI::get_entry( $data[ $i ]['id'] ), $field_setting );
+					$field_value                  = array_values( $field_value );
+					$data[ $i ][ $column['db'] ]  = $field_value[0];
+				}
 
 				// Is there a formatter?
 				if ( isset( $column['formatter'] ) ) {
-					$row[ $column['dt'] ] = $column['formatter']( $data[$i][ $column['db'] ], $data[$i] );
-				}
-				else {
-					$row[ $column['dt'] ] = $data[$i][ $columns[$j]['db'] ];
+					$row[ $column['dt'] ] = $column['formatter']( $data[ $i ][ $column['db'] ], $data[ $i ] );
+				} else {
+					$row[ $column['dt'] ] = $data[ $i ][ $columns[ $j ]['db'] ];
 				}
 			}
 
@@ -45,16 +62,16 @@ class GravityView_DataTables_SSP {
 	 *
 	 * Obtain an PHP PDO connection from a connection details array
 	 *
-	 *  @param  array $conn SQL connection details. The array should have
+	 * @param  array $conn SQL connection details. The array should have
 	 *    the following properties
 	 *     * host - host name
 	 *     * db   - database name
 	 *     * user - user name
 	 *     * pass - user password
-	 *  @return resource PDO connection
+	 *
+	 * @return resource PDO connection
 	 */
-	static function db ( $conn )
-	{
+	static function db( $conn ) {
 		if ( is_array( $conn ) ) {
 			return self::sql_connect( $conn );
 		}
@@ -68,16 +85,16 @@ class GravityView_DataTables_SSP {
 	 *
 	 * Construct the LIMIT clause for server-side processing SQL query
 	 *
-	 *  @param  array $request Data sent to server by DataTables
-	 *  @param  array $columns Column information array
-	 *  @return string SQL limit clause
+	 * @param  array $request Data sent to server by DataTables
+	 * @param  array $columns Column information array
+	 *
+	 * @return string SQL limit clause
 	 */
-	static function limit ( $request, $columns )
-	{
+	static function limit( $request, $columns ) {
 		$limit = '';
 
-		if ( isset($request['start']) && $request['length'] != -1 ) {
-			$limit = "LIMIT ".intval($request['start']).", ".intval($request['length']);
+		if ( isset( $request['start'] ) && $request['length'] != - 1 ) {
+			$limit = "LIMIT " . intval( $request['start'] ) . ", " . intval( $request['length'] );
 		}
 
 		return $limit;
@@ -89,36 +106,36 @@ class GravityView_DataTables_SSP {
 	 *
 	 * Construct the ORDER BY clause for server-side processing SQL query
 	 *
-	 *  @param  array $request Data sent to server by DataTables
-	 *  @param  array $columns Column information array
-	 *  @return string SQL order by clause
+	 * @param  array $request Data sent to server by DataTables
+	 * @param  array $columns Column information array
+	 *
+	 * @return string SQL order by clause
 	 */
-	static function order ( $request, $columns )
-	{
+	static function order( $request, $columns ) {
 		$order = '';
 
-		if ( isset($request['order']) && count($request['order']) ) {
-			$orderBy = array();
+		if ( isset( $request['order'] ) && count( $request['order'] ) ) {
+			$orderBy   = array();
 			$dtColumns = self::pluck( $columns, 'dt' );
 
-			for ( $i=0, $ien=count($request['order']) ; $i<$ien ; $i++ ) {
+			for ( $i = 0, $ien = count( $request['order'] ); $i < $ien; $i ++ ) {
 				// Convert the column index into the column data property
-				$columnIdx = intval($request['order'][$i]['column']);
-				$requestColumn = $request['columns'][$columnIdx];
+				$columnIdx     = intval( $request['order'][ $i ]['column'] );
+				$requestColumn = $request['columns'][ $columnIdx ];
 
 				$columnIdx = array_search( $requestColumn['data'], $dtColumns );
-				$column = $columns[ $columnIdx ];
+				$column    = $columns[ $columnIdx ];
 
 				if ( $requestColumn['orderable'] == 'true' ) {
-					$dir = $request['order'][$i]['dir'] === 'asc' ?
+					$dir = $request['order'][ $i ]['dir'] === 'asc' ?
 						'ASC' :
 						'DESC';
 
-					$orderBy[] = '`'.$column['db'].'` '.$dir;
+					$orderBy[] = '`' . $column['db'] . '` ' . $dir;
 				}
 			}
 
-			$order = 'ORDER BY '.implode(', ', $orderBy);
+			$order = 'ORDER BY ' . implode( ', ', $orderBy );
 		}
 
 		return $order;
@@ -134,46 +151,47 @@ class GravityView_DataTables_SSP {
 	 * word by word on any field. It's possible to do here performance on large
 	 * databases would be very poor
 	 *
-	 *  @param  array $request Data sent to server by DataTables
-	 *  @param  array $columns Column information array
-	 *  @param  array $bindings Array of values for PDO bindings, used in the
+	 * @param  array $request Data sent to server by DataTables
+	 * @param  array $columns Column information array
+	 * @param  array $bindings Array of values for PDO bindings, used in the
 	 *    sql_exec() function
-	 *  @return string SQL where clause
+	 *
+	 * @return string SQL where clause
 	 */
-	static function filter ( $request, $columns, &$bindings )
-	{
+	static function filter( $request, $columns, &$bindings ) {
 		$globalSearch = array();
 		$columnSearch = array();
-		$dtColumns = self::pluck( $columns, 'dt' );
+		$dtColumns    = self::pluck( $columns, 'dt' );
 
-		if ( isset($request['search']) && $request['search']['value'] != '' ) {
+		if ( isset( $request['search'] ) && $request['search']['value'] != '' ) {
 			$str = $request['search']['value'];
 
-			for ( $i=0, $ien=count($request['columns']) ; $i<$ien ; $i++ ) {
-				$requestColumn = $request['columns'][$i];
-				$columnIdx = array_search( $requestColumn['data'], $dtColumns );
-				$column = $columns[ $columnIdx ];
+			for ( $i = 0, $ien = count( $request['columns'] ); $i < $ien; $i ++ ) {
+				$requestColumn = $request['columns'][ $i ];
+				$columnIdx     = array_search( $requestColumn['data'], $dtColumns );
+				$column        = $columns[ $columnIdx ];
 
 				if ( $requestColumn['searchable'] == 'true' ) {
-					$binding = self::bind( $bindings, '%'.$str.'%', PDO::PARAM_STR );
-					$globalSearch[] = "`".$column['db']."` LIKE ".$binding;
+					$binding        = self::bind( $bindings, '%' . $str . '%', PDO::PARAM_STR );
+					$globalSearch[] = "`" . $column['db'] . "` LIKE " . $binding;
 				}
 			}
 		}
 
 		// Individual column filtering
 		if ( isset( $request['columns'] ) ) {
-			for ( $i=0, $ien=count($request['columns']) ; $i<$ien ; $i++ ) {
-				$requestColumn = $request['columns'][$i];
-				$columnIdx = array_search( $requestColumn['data'], $dtColumns );
-				$column = $columns[ $columnIdx ];
+			for ( $i = 0, $ien = count( $request['columns'] ); $i < $ien; $i ++ ) {
+				$requestColumn = $request['columns'][ $i ];
+				$columnIdx     = array_search( $requestColumn['data'], $dtColumns );
+				$column        = $columns[ $columnIdx ];
 
 				$str = $requestColumn['search']['value'];
 
 				if ( $requestColumn['searchable'] == 'true' &&
-				     $str != '' ) {
-					$binding = self::bind( $bindings, '%'.$str.'%', PDO::PARAM_STR );
-					$columnSearch[] = "`".$column['db']."` LIKE ".$binding;
+				     $str != ''
+				) {
+					$binding        = self::bind( $bindings, '%' . $str . '%', PDO::PARAM_STR );
+					$columnSearch[] = "`" . $column['db'] . "` LIKE " . $binding;
 				}
 			}
 		}
@@ -182,17 +200,17 @@ class GravityView_DataTables_SSP {
 		$where = '';
 
 		if ( count( $globalSearch ) ) {
-			$where = '('.implode(' OR ', $globalSearch).')';
+			$where = '(' . implode( ' OR ', $globalSearch ) . ')';
 		}
 
 		if ( count( $columnSearch ) ) {
 			$where = $where === '' ?
-				implode(' AND ', $columnSearch) :
-				$where .' AND '. implode(' AND ', $columnSearch);
+				implode( ' AND ', $columnSearch ) :
+				$where . ' AND ' . implode( ' AND ', $columnSearch );
 		}
 
 		if ( $where !== '' ) {
-			$where = 'WHERE '.$where;
+			$where = 'WHERE ' . $where;
 		}
 
 		return $where;
@@ -206,17 +224,17 @@ class GravityView_DataTables_SSP {
 	 * in response to an SSP request, or can be modified if needed before
 	 * sending back to the client.
 	 *
-	 *  @param  array $request Data sent to server by DataTables
-	 *  @param  array|PDO $conn PDO connection resource or connection parameters array
-	 *  @param  string $table SQL table to query
-	 *  @param  string $primaryKey Primary key of the table
-	 *  @param  array $columns Column information array
-	 *  @return array          Server-side processing response array
+	 * @param  array $request Data sent to server by DataTables
+	 * @param  array|PDO $conn PDO connection resource or connection parameters array
+	 * @param  string $table SQL table to query
+	 * @param  string $primaryKey Primary key of the table
+	 * @param  array $columns Column information array
+	 *
+	 * @return array          Server-side processing response array
 	 */
-	static function simple ( $request, $conn, $table, $primaryKey, $columns )
-	{
+	static function simple( $request, $conn, $table, $primaryKey, $columns ) {
 		$bindings = array();
-		$db = self::db( $conn );
+		$db       = self::db( $conn );
 
 		// Build the SQL query string from the request
 		$limit = self::limit( $request, $columns );
@@ -225,7 +243,7 @@ class GravityView_DataTables_SSP {
 
 		// Main query to actually get the data
 		$data = self::sql_exec( $db, $bindings,
-			"SELECT `".implode("`, `", self::pluck($columns, 'db'))."`
+			"SELECT `" . implode( "`, `", self::pluck( $columns, 'db' ) ) . "`
 			 FROM `$table`
 			 $where
 			 $order
@@ -245,18 +263,19 @@ class GravityView_DataTables_SSP {
 			"SELECT COUNT(`{$primaryKey}`)
 			 FROM   `$table`"
 		);
-		$recordsTotal = $resTotalLength[0][0];
+		$recordsTotal   = $resTotalLength[0][0];
 
 		/*
 		 * Output
 		 */
+
 		return array(
 			"draw"            => isset ( $request['draw'] ) ?
 				intval( $request['draw'] ) :
 				0,
 			"recordsTotal"    => intval( $recordsTotal ),
 			"recordsFiltered" => intval( $recordsFiltered ),
-			"data"            => self::data_output( $columns, $data )
+			"data"            => self::data_output( $columns, $data, $table )
 		);
 	}
 
@@ -275,22 +294,22 @@ class GravityView_DataTables_SSP {
 	 *   used in conditions where you don't want the user to ever have access to
 	 *   particular records (for example, restricting by a login id).
 	 *
-	 *  @param  array $request Data sent to server by DataTables
-	 *  @param  array|PDO $conn PDO connection resource or connection parameters array
-	 *  @param  string $table SQL table to query
-	 *  @param  string $primaryKey Primary key of the table
-	 *  @param  array $columns Column information array
-	 *  @param  string $whereResult WHERE condition to apply to the result set
-	 *  @param  string $whereAll WHERE condition to apply to all queries
-	 *  @return array          Server-side processing response array
+	 * @param  array $request Data sent to server by DataTables
+	 * @param  array|PDO $conn PDO connection resource or connection parameters array
+	 * @param  string $table SQL table to query
+	 * @param  string $primaryKey Primary key of the table
+	 * @param  array $columns Column information array
+	 * @param  string $whereResult WHERE condition to apply to the result set
+	 * @param  string $whereAll WHERE condition to apply to all queries
+	 *
+	 * @return array          Server-side processing response array
 	 */
-	static function complex ( $request, $conn, $table, $primaryKey, $columns, $whereResult=null, $whereAll=null )
-	{
-		$bindings = array();
-		$db = self::db( $conn );
+	static function complex( $request, $conn, $table, $primaryKey, $columns, $whereResult = null, $whereAll = null ) {
+		$bindings         = array();
+		$db               = self::db( $conn );
 		$localWhereResult = array();
-		$localWhereAll = array();
-		$whereAllSql = '';
+		$localWhereAll    = array();
+		$whereAllSql      = '';
 
 		// Build the SQL query string from the request
 		$limit = self::limit( $request, $columns );
@@ -298,25 +317,27 @@ class GravityView_DataTables_SSP {
 		$where = self::filter( $request, $columns, $bindings );
 
 		$whereResult = self::_flatten( $whereResult );
-		$whereAll = self::_flatten( $whereAll );
+		$whereAll    = self::_flatten( $whereAll );
 
 		if ( $whereResult ) {
 			$where = $where ?
-				$where .' AND '.$whereResult :
-				'WHERE '.$whereResult;
+				$where . ' AND ' . $whereResult :
+				'WHERE ' . $whereResult;
 		}
 
 		if ( $whereAll ) {
 			$where = $where ?
-				$where .' AND '.$whereAll :
-				'WHERE '.$whereAll;
+				$where . ' AND ' . $whereAll :
+				'WHERE ' . $whereAll;
 
-			$whereAllSql = 'WHERE '.$whereAll;
+			$whereAllSql = 'WHERE ' . $whereAll;
 		}
 
-		// Main query to actually get the data
+		/**
+		 * Main query to actually get the data
+		 */
 		$data = self::sql_exec( $db, $bindings,
-			"SELECT `".implode("`, `", self::pluck($columns, 'db'))."`
+			"SELECT `" . implode( "`, `", self::pluck( $columns, 'db' ) ) . "`
 			 FROM `$table`
 			 $where
 			 $order
@@ -334,14 +355,15 @@ class GravityView_DataTables_SSP {
 		// Total data set length
 		$resTotalLength = self::sql_exec( $db, $bindings,
 			"SELECT COUNT(`{$primaryKey}`)
-			 FROM   `$table` ".
+			 FROM   `$table` " .
 			$whereAllSql
 		);
-		$recordsTotal = $resTotalLength[0][0];
+		$recordsTotal   = $resTotalLength[0][0];
 
 		/*
 		 * Output
 		 */
+
 		return array(
 			"draw"            => isset ( $request['draw'] ) ?
 				intval( $request['draw'] ) :
@@ -362,10 +384,10 @@ class GravityView_DataTables_SSP {
 	 *     * db   - database name
 	 *     * user - user name
 	 *     * pass - user password
+	 *
 	 * @return resource Database connection handle
 	 */
-	static function sql_connect ( $sql_details )
-	{
+	static function sql_connect( $sql_details ) {
 		try {
 			$db = @new PDO(
 				"mysql:host={$sql_details['host']};dbname={$sql_details['db']}",
@@ -373,11 +395,10 @@ class GravityView_DataTables_SSP {
 				$sql_details['pass'],
 				array( PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION )
 			);
-		}
-		catch (PDOException $e) {
+		} catch ( PDOException $e ) {
 			self::fatal(
-				"An error occurred while connecting to the database. ".
-				"The error reported by the server was: ".$e->getMessage()
+				"An error occurred while connecting to the database. " .
+				"The error reported by the server was: " . $e->getMessage()
 			);
 		}
 
@@ -388,17 +409,17 @@ class GravityView_DataTables_SSP {
 	/**
 	 * Execute an SQL query on the database
 	 *
-	 * @param  resource $db  Database handler
-	 * @param  array    $bindings Array of PDO binding values from bind() to be
+	 * @param  resource $db Database handler
+	 * @param  array $bindings Array of PDO binding values from bind() to be
 	 *   used for safely escaping strings. Note that this can be given as the
 	 *   SQL query string if no bindings are required.
-	 * @param  string   $sql SQL query to execute.
+	 * @param  string $sql SQL query to execute.
+	 *
 	 * @return array         Result from the query (all rows)
 	 */
-	static function sql_exec ( $db, $bindings, $sql=null )
-	{
+	static function sql_exec( $db, $bindings, $sql = null ) {
 		global $wpdb;
-		
+
 		// Argument shifting
 		if ( $sql === null ) {
 			$sql = $bindings;
@@ -410,8 +431,8 @@ class GravityView_DataTables_SSP {
 
 		// Bind parameters
 		if ( is_array( $bindings ) ) {
-			for ( $i=0, $ien=count($bindings) ; $i<$ien ; $i++ ) {
-				$binding = $bindings[$i];
+			for ( $i = 0, $ien = count( $bindings ); $i < $ien; $i ++ ) {
+				$binding = $bindings[ $i ];
 				$stmt->bindValue( $binding['key'], $binding['val'], $binding['type'] );
 			}
 		}
@@ -419,9 +440,8 @@ class GravityView_DataTables_SSP {
 		// Execute
 		try {
 			$stmt->execute();
-		}
-		catch (PDOException $e) {
-			self::fatal( "An SQL error occurred: ".$e->getMessage() );
+		} catch ( PDOException $e ) {
+			self::fatal( "An SQL error occurred: " . $e->getMessage() );
 		}
 
 		// Return all
@@ -441,32 +461,31 @@ class GravityView_DataTables_SSP {
 	 *
 	 * @param  string $msg Message to send to the client
 	 */
-	static function fatal ( $msg )
-	{
+	static function fatal( $msg ) {
 		echo json_encode( array(
 			"error" => $msg
 		) );
 
-		exit(0);
+		exit( 0 );
 	}
 
 	/**
 	 * Create a PDO binding key which can be used for escaping variables safely
 	 * when executing a query with sql_exec()
 	 *
-	 * @param  array &$a    Array of bindings
+	 * @param  array &$a Array of bindings
 	 * @param  *      $val  Value to bind
-	 * @param  int    $type PDO field type
+	 * @param  int $type PDO field type
+	 *
 	 * @return string       Bound key to be used in the SQL where this parameter
 	 *   would be used.
 	 */
-	static function bind ( &$a, $val, $type )
-	{
-		$key = ':binding_'.count( $a );
+	static function bind( &$a, $val, $type ) {
+		$key = ':binding_' . count( $a );
 
 		$a[] = array(
-			'key' => $key,
-			'val' => $val,
+			'key'  => $key,
+			'val'  => $val,
 			'type' => $type
 		);
 
@@ -478,16 +497,16 @@ class GravityView_DataTables_SSP {
 	 * Pull a particular property from each assoc. array in a numeric array,
 	 * returning and array of the property values from each item.
 	 *
-	 *  @param  array  $a    Array to get data from
-	 *  @param  string $prop Property to read
-	 *  @return array        Array of property values
+	 * @param  array $a Array to get data from
+	 * @param  string $prop Property to read
+	 *
+	 * @return array        Array of property values
 	 */
-	static function pluck ( $a, $prop )
-	{
+	static function pluck( $a, $prop ) {
 		$out = array();
 
-		for ( $i=0, $len=count($a) ; $i<$len ; $i++ ) {
-			$out[] = $a[$i][$prop];
+		for ( $i = 0, $len = count( $a ); $i < $len; $i ++ ) {
+			$out[] = $a[ $i ][ $prop ];
 		}
 
 		return $out;
@@ -499,16 +518,16 @@ class GravityView_DataTables_SSP {
 	 *
 	 * @param  array|string $a Array to join
 	 * @param  string $join Glue for the concatenation
+	 *
 	 * @return string Joined string
 	 */
-	static function _flatten ( $a, $join = ' AND ' )
-	{
+	static function _flatten( $a, $join = ' AND ' ) {
 		if ( ! $a ) {
 			return '';
-		}
-		else if ( $a && is_array($a) ) {
+		} else if ( $a && is_array( $a ) ) {
 			return implode( $join, $a );
 		}
+
 		return $a;
 	}
 

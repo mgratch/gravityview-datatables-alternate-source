@@ -27,8 +27,6 @@ class GravityView_DataTables_Alt_DataSrc {
 			GravityView_Plugin::getInstance()->frontend_actions( true );
 		}
 
-		//remove_all_actions( 'wp_ajax_gv_datatables_data', 10 );
-		//remove_all_actions( 'wp_ajax_nopriv_gv_datatables_data', 10 );
 		remove_action( 'wp_ajax_gv_datatables_data', array(
 			"GV_Extension_DataTables_Data",
 			'get_datatables_data'
@@ -37,13 +35,13 @@ class GravityView_DataTables_Alt_DataSrc {
 			"GV_Extension_DataTables_Data",
 			'get_datatables_data'
 		), 10 );
+		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_admin_scripts' ), 11 );
+		add_action( 'gravityview_default_args', array( $this, 'add_hidden_field' ), 10 );
 
 		add_filter( 'gravityview_use_cache', '__return_false' );
-
+		add_filter( 'gravityview/metaboxes/default', array( $this, 'remove_metabox_tab' ) );
 		add_filter( 'gravityview_field_entry_value', array( $this, 'format_entry_value_array' ), 10, 4 );
-
 		add_filter( 'gv_index_custom_content', array( $this, 'index_custom_content_values' ), 10, 4 );
-
 		add_filter( 'gravityview_datatables_js_options', array(
 			$this,
 			'change_gravityview_datatables_source'
@@ -70,6 +68,26 @@ class GravityView_DataTables_Alt_DataSrc {
 		return self::$instance;
 	}
 
+	public function enqueue_admin_scripts() {
+
+		$min = defined( 'SCRIPT_DEBUG' ) && SCRIPT_DEBUG || isset( $_GET['gform_debug'] ) ? '' : '.min';
+		wp_register_script( 'gaddon_repeater', GFAddOn::get_gfaddon_base_url() . "/js/repeater{$min}.js", array( 'jquery' ), "1.0" );
+		wp_enqueue_script( 'gaddon_repeater' );
+		$this->register_noconflict_script( 'gaddon_repeater' );
+
+		wp_register_script( 'gvdt_fieldmap_js', GVDT_ALT_SRC_URL . "/includes/assets/js/gaddon_fieldmap{$min}.js", array(
+			'jquery',
+			'gaddon_repeater'
+		), "1.0" );
+		wp_enqueue_script( 'gvdt_fieldmap_js' );
+		$this->register_noconflict_script( 'gvdt_fieldmap_js' );
+
+	}
+
+	public function register_noconflict_script( $script_name ) {
+		add_filter( 'gform_noconflict_scripts', create_function( '$scripts', '$scripts[] = "' . $script_name . '"; return $scripts;' ) );
+	}
+
 	public function change_gravityview_datatables_source( $dt_config, $view_id, $post ) {
 
 		if ( ! GravityView_Roles_Capabilities::has_cap( 'gravityforms_view_entries' ) ) {
@@ -78,6 +96,28 @@ class GravityView_DataTables_Alt_DataSrc {
 
 		//store original options
 		$return_config = $dt_config;
+
+		$view_data = get_post_meta( $view_id, '_gravityview_template_settings', true );
+
+		if ( isset( $view_data['multiple_sort_field'] ) ) {
+
+			$sort_fields                      = json_decode( $view_data['multiple_sort_field'] );
+			$view_data['multiple_sort_field'] = array();
+			$columns                          = $return_config['columns'];
+			$return_config['order']           = array();
+
+			for ( $i = 0; $i < count( $columns ); $i ++ ) {
+
+				$col = str_replace( "gv_", "", $columns[ $i ]['name'] );
+
+				for ( $j = 0; $j < count( $sort_fields ); $j ++ ) {
+					$sort_field = get_object_vars( $sort_fields[ $j ] );
+					if ( $col == $sort_field['key'] ) {
+						$return_config['order'][] = array( $i, $sort_field['value'] );
+					}
+				}
+			}
+		}
 
 		$return_config['ajax']['data']['action'] = 'gv_alt_datatables_data';
 		$return_config['stateSave']              = false;
@@ -256,26 +296,40 @@ class GravityView_DataTables_Alt_DataSrc {
 	}
 
 	/**
-	 * Handle single
+	 * @param $output
+	 * @param $entry
+	 * @param $field_settings
+	 * @param $current_field
+	 *
+	 * @return array
 	 */
-	protected function handle_single() {
-		$names = $this->get_names();
-		$rand  = array_rand( $names, 1 );
-		$name  = $names[ $rand ];
-		wp_queue( new WP_Example_Job( $name ), MINUTE_IN_SECONDS );
-	}
-
-
 	public function format_entry_value_array( $output, $entry, $field_settings, $current_field ) {
-		$key = is_numeric( $current_field['field_id'] ) ? 'field_' . $current_field['field_id'] : $current_field['field_id'];
 
-		if ( "date_created" === $key ) {
-			$output = $entry[ $key ];
+		if (isset($_GET['action']) && 'http_worker' === $_GET['action']){
+			$key = is_numeric( $current_field['field_id'] ) ? 'field_' . $current_field['field_id'] : $current_field['field_id'];
+
+			if ( "date_created" === $key ) {
+				$output = $entry[ $key ];
+			} else {
+				$key     = strtolower( $key );
+				$key     = str_replace( ' ', '_', $key );
+				$key     = preg_replace( '/[^a-z0-9_\.\-]/', '', $key );
+				$key     = preg_replace( '/[.-]/', '_', $key );
+			}
+
+			return array( $key => $output );
+		} else {
+			return $output;
 		}
 
-		return array( $key => $output );
 	}
 
+	/**
+	 * @param $view_id
+	 * @param $entry
+	 *
+	 * @return array
+	 */
 	public function prepare_entry( $view_id, $entry ) {
 
 		$view_data = GravityView_View_Data::getInstance()->get_view( $view_id );
@@ -300,9 +354,11 @@ class GravityView_DataTables_Alt_DataSrc {
 
 	/**
 	 * @param $post_id
-	 * @param $post
+	 * @param $atts
 	 *
-	 * @param $update
+	 * @internal param $post
+	 *
+	 * @internal param $update
 	 *
 	 * @internal param $update
 	 *
@@ -318,55 +374,78 @@ class GravityView_DataTables_Alt_DataSrc {
 		if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) {
 			return;
 		}
+		
+		$gravityview_directory_template = get_post_meta( $post_id, '_gravityview_directory_template', true );
 
-		$this->generate_index_table( $post_id );
+		if ( 'datatables_table' === $gravityview_directory_template ) {
+			$this->generate_index_table( $post_id );
+		}
 	}
 
+	/**
+	 * @param $entry
+	 * @param $form
+	 */
 	public function insert_entry( $entry, $form ) {
 		remove_action( 'gform_entry_created', array( $this, 'insert_entry' ), 10 );
 		$views    = gravityview_get_connected_views( $form['id'] );
 		$entry_id = $entry['id'];
 
 		foreach ( $views as $view ) {
-			$gravityview_view_DT = new GravityView_DataTables_Index_DB( $view->ID );
-			$entry               = GFAPI::get_entry( $entry_id );
-			$entry               = $this->prepare_entry( $view->ID, $entry );
-			$gravityview_view_DT->insert( $entry );
+			$gravityview_directory_template = get_post_meta( $view->ID, '_gravityview_directory_template', true );
+
+			if ( 'datatables_table' === $gravityview_directory_template ) {
+				$gravityview_view_DT = new GravityView_DataTables_Index_DB( $view->ID );
+				$entry               = GFAPI::get_entry( $entry_id );
+				$entry               = $this->prepare_entry( $view->ID, $entry );
+				$gravityview_view_DT->insert( $entry );
+			}
+
 		}
 		add_action( 'gform_entry_created', array( $this, 'insert_entry' ), 10, 2 );
 	}
 
+	/**
+	 * @param $form
+	 * @param $entry_id
+	 */
 	public function update_entry( $form, $entry_id ) {
 		$views = gravityview_get_connected_views( $form['id'] );
 
 		foreach ( $views as $view ) {
-			$gravityview_view_DT = new GravityView_DataTables_Index_DB( $view->ID );
-			$entry               = GFAPI::get_entry( $entry_id );
-			$entry               = $this->prepare_entry( $view->ID, $entry );
-			$gravityview_view_DT->update( $entry_id, $entry );
+			$gravityview_directory_template = get_post_meta( $view->ID, '_gravityview_directory_template', true );
+
+			if ('datatables_table' === $gravityview_directory_template){
+				$gravityview_view_DT = new GravityView_DataTables_Index_DB( $view->ID );
+				$entry               = GFAPI::get_entry( $entry_id );
+				$entry               = $this->prepare_entry( $view->ID, $entry );
+				$gravityview_view_DT->update( $entry_id, $entry );
+			}
+
 		}
 	}
 
+	/**
+	 * @param $entry_id
+	 * @param string $property_value
+	 * @param string $previous_value
+	 */
 	public function delete_entry( $entry_id, $property_value = '', $previous_value = '' ) {
 		if ( $property_value == 'trash' ) {
 			$form  = gravityview_get_form_from_entry_id( $entry_id );
 			$views = gravityview_get_connected_views( $form['id'] );
 			foreach ( $views as $view ) {
-				$gravityview_view_DT = new GravityView_DataTables_Index_DB( $view->ID );
-				$gravityview_view_DT->delete( $entry_id );
+
+				$gravityview_directory_template = get_post_meta( $view->ID, '_gravityview_directory_template', true );
+				
+				if ( 'datatables_table' === $gravityview_directory_template ) {
+					$gravityview_view_DT = new GravityView_DataTables_Index_DB( $view->ID );
+					$gravityview_view_DT->delete( $entry_id );
+				}
+
 			}
 		}
 	}
-
-	private function get_columns( $columns ) {
-		$new_columns = array();
-		foreach ( $columns as $column ) {
-			$new_columns[] = str_replace( "gv_", "", $column['name'] );
-		}
-
-		return $new_columns;
-	}
-
 
 	/**
 	 * main AJAX logic to retrieve DataTables data
@@ -588,6 +667,14 @@ class GravityView_DataTables_Alt_DataSrc {
 		exit( $json );
 	}
 
+	/**
+	 * @param $output
+	 * @param $entry
+	 * @param $field_settings
+	 * @param $view_id
+	 *
+	 * @return array
+	 */
 	public function index_custom_content_values( $output, $entry, $field_settings, $view_id ) {
 		if ( true === $output ) {
 			$output = array_merge( $output, GravityView_API::field_value( $entry, $field_settings ) );
@@ -596,6 +683,45 @@ class GravityView_DataTables_Alt_DataSrc {
 		}
 
 		return array( 'custom' => $output );
+	}
+
+	/**
+	 * @param $metaboxes
+	 *
+	 * @return mixed
+	 */
+	public function remove_metabox_tab( $metaboxes ) {
+
+		global $post;
+		$gravityview_directory_template = get_post_meta( $post->ID, '_gravityview_directory_template', true );
+
+		if ( 'datatables_table' === $gravityview_directory_template ) {
+			for ( $i = 0, $count = count( $metaboxes ); $i < $count; $i ++ ) {
+				if ( 'sort_filter' === $metaboxes[ $i ]['id'] ) {
+					$metaboxes[ $i ]['file'] = GVDT_ALT_SRC_DIR . 'includes/template/sort-filter.php';
+				}
+			}
+		}
+
+		return $metaboxes;
+	}
+
+	/**
+	 * @param $default_args
+	 *
+	 * @return mixed
+	 */
+	public function add_hidden_field( $default_args ) {
+		$default_args['multiple_sort_field'] =
+			array(
+				'label'             => __( '', 'gravityview' ),
+				'type'              => 'hidden',
+				'value'             => '',
+				'group'             => 'sort',
+				'show_in_shortcode' => false
+			);
+
+		return $default_args;
 	}
 
 

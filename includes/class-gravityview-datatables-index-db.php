@@ -63,7 +63,7 @@ class GravityView_DataTables_Index_DB extends GravityView_Index_DB {
 
 		$this->view_data = GravityView_View_Data::getInstance( $view_id )->get_view( $view_id );
 
-		if ( $this->view_data ) {
+		if ( $this->view_data && isset( $this->view_data['fields']['directory_table-columns'] ) ) {
 			$columns = $this->view_data['fields']['directory_table-columns'];
 			array_map( array( &$this, 'build_columns_array' ), $columns );
 

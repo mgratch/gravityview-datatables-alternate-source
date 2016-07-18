@@ -145,7 +145,7 @@ class GravityView_DataTables_Alt_DataSrc {
 		}
 
 		$return_config['ajax']['data']['action'] = 'gv_alt_datatables_data';
-		//$return_config['ajax']['url']            = GVDT_ALT_SRC_URL . 'includes/class-gravityview-datatables-alt-data-src.php';
+		$return_config['ajax']['url']            = admin_url( 'admin-ajax.php' );
 		$return_config['stateSave'] = false;
 
 		return $return_config;

@@ -109,10 +109,15 @@ class GravityView_DataTables_Index_DB extends GravityView_Index_DB {
 		 */
 		if ( isset( $this->columns[ $label ] ) || 'custom' === $label ) {
 			for ( $i = 0; $i < count( $this->columns ); $i ++ ) {
-				if ( ! isset( $this->columns[ $label . "_{$i}" ] ) ) {
-					$label = $label . "_{$i}";
+				$new_label = $label . "_{$i}";
+				if ( ! isset( $this->columns[ $new_label ] ) ) {
+					$label = $new_label;
 					break;
 				}
+			}
+			//don't forget if it's the first column AND it's a custom column
+			if ( 0 === count( $this->columns ) ){
+				$label = $label . "_0";
 			}
 		}
 

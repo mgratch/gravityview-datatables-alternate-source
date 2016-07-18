@@ -41,7 +41,7 @@ class GravityView_DataTables_Alt_DataSrc {
 		add_filter( 'gravityview_use_cache', '__return_false' );
 		add_filter( 'gravityview/metaboxes/default', array( $this, 'remove_metabox_tab' ) );
 		add_filter( 'gravityview_field_entry_value', array( $this, 'format_entry_value_array' ), 10, 4 );
-		add_filter( 'gv_index_custom_content', array( $this, 'index_custom_content_values' ), 10, 4 );
+		add_filter( 'gv_index_custom_content', array( $this, 'index_custom_content_values' ), 11, 2 );
 		add_filter( 'gravityview_datatables_js_options', array(
 			$this,
 			'change_gravityview_datatables_source'
@@ -69,6 +69,15 @@ class GravityView_DataTables_Alt_DataSrc {
 	}
 
 	public function enqueue_admin_scripts() {
+		global $pagenow, $typenow, $post;
+
+		if ( "gravityview" !== $typenow ) {
+			return;
+		}
+
+		if ( "post.php" !== $pagenow ) {
+			return;
+		}
 
 		$min = defined( 'SCRIPT_DEBUG' ) && SCRIPT_DEBUG || isset( $_GET['gform_debug'] ) ? '' : '.min';
 		wp_register_script( 'gaddon_repeater', GFAddOn::get_gfaddon_base_url() . "/js/repeater{$min}.js", array( 'jquery' ), "1.0" );
@@ -81,6 +90,13 @@ class GravityView_DataTables_Alt_DataSrc {
 		), "1.0" );
 		wp_enqueue_script( 'gvdt_fieldmap_js' );
 		$this->register_noconflict_script( 'gvdt_fieldmap_js' );
+
+		$index_custom_data = apply_filters( 'gv_index_custom_content', $answer = false, $post->ID );
+
+		wp_localize_script( 'sort-filter-selectbox', 'gvDTIndex', $index_custom_data );
+		wp_register_script( 'sort-filter-selectbox', GVDT_ALT_SRC_URL . "/includes/assets/js/sort-filter-selectbox{$min}.js", array( 'gvdt_fieldmap_js' ), "1.0", true );
+		wp_enqueue_script( 'sort-filter-selectbox' );
+		$this->register_noconflict_script( 'gaddon_repeater' );
 
 	}
 
@@ -106,21 +122,31 @@ class GravityView_DataTables_Alt_DataSrc {
 			$columns                          = $return_config['columns'];
 			$return_config['order']           = array();
 
-			for ( $i = 0; $i < count( $columns ); $i ++ ) {
+			for ( $i = 0, $k = 0; $i < count( $columns ); $i ++ ) {
 
 				$col = str_replace( "gv_", "", $columns[ $i ]['name'] );
+
+				if ( "custom" === $col ) {
+					$col = $col . "_" . $k;
+					$k ++;
+				}
 
 				for ( $j = 0; $j < count( $sort_fields ); $j ++ ) {
 					$sort_field = get_object_vars( $sort_fields[ $j ] );
 					if ( $col == $sort_field['key'] ) {
 						$return_config['order'][] = array( $i, $sort_field['value'] );
+						$index_custom_data        = apply_filters( 'gv_index_custom_content', $answer = false, $view_id );
+						if ( $index_custom_data ) {
+							$return_config['columns'][ $i ]['orderable'] = true;
+						}
 					}
 				}
 			}
 		}
 
 		$return_config['ajax']['data']['action'] = 'gv_alt_datatables_data';
-		$return_config['stateSave']              = false;
+		//$return_config['ajax']['url']            = GVDT_ALT_SRC_URL . 'includes/class-gravityview-datatables-alt-data-src.php';
+		$return_config['stateSave'] = false;
 
 		return $return_config;
 
@@ -238,7 +264,17 @@ class GravityView_DataTables_Alt_DataSrc {
 								//try not to store html
 								$fields[ $i ]['show_as_link'] = 0;
 								if ( isset( $fields[ $i ]['content'] ) ) {
-									$temp = array_merge( $temp, apply_filters( 'gv_index_custom_content', $fields[ $i ]['content'], $entry, $fields[ $i ], $view_id ) );
+
+									$index_custom_data = apply_filters( 'gv_index_custom_content', $answer = false, $view_id );
+
+									if ( $index_custom_data ) {
+										$custom_data = GravityView_API::field_value( $entry, $fields[ $i ] );
+										$custom_data = array( "custom" => $custom_data['custom'] );
+									} else {
+										$custom_data = array( "custom" => esc_html( $fields[ $i ]['content'] ) );
+									}
+
+									$temp = array_merge( $temp, $custom_data );
 								} else {
 									$temp = array_merge( $temp, GravityView_API::field_value( $entry, $fields[ $i ] ) );
 								}
@@ -305,16 +341,16 @@ class GravityView_DataTables_Alt_DataSrc {
 	 */
 	public function format_entry_value_array( $output, $entry, $field_settings, $current_field ) {
 
-		if (isset($_GET['action']) && 'http_worker' === $_GET['action']){
+		if ( isset( $_GET['action'] ) && 'http_worker' === $_GET['action'] ) {
 			$key = is_numeric( $current_field['field_id'] ) ? 'field_' . $current_field['field_id'] : $current_field['field_id'];
 
 			if ( "date_created" === $key ) {
 				$output = $entry[ $key ];
 			} else {
-				$key     = strtolower( $key );
-				$key     = str_replace( ' ', '_', $key );
-				$key     = preg_replace( '/[^a-z0-9_\.\-]/', '', $key );
-				$key     = preg_replace( '/[.-]/', '_', $key );
+				$key = strtolower( $key );
+				$key = str_replace( ' ', '_', $key );
+				$key = preg_replace( '/[^a-z0-9_\.\-]/', '', $key );
+				$key = preg_replace( '/[.-]/', '_', $key );
 			}
 
 			return array( $key => $output );
@@ -374,7 +410,7 @@ class GravityView_DataTables_Alt_DataSrc {
 		if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) {
 			return;
 		}
-		
+
 		$gravityview_directory_template = get_post_meta( $post_id, '_gravityview_directory_template', true );
 
 		if ( 'datatables_table' === $gravityview_directory_template ) {
@@ -415,7 +451,7 @@ class GravityView_DataTables_Alt_DataSrc {
 		foreach ( $views as $view ) {
 			$gravityview_directory_template = get_post_meta( $view->ID, '_gravityview_directory_template', true );
 
-			if ('datatables_table' === $gravityview_directory_template){
+			if ( 'datatables_table' === $gravityview_directory_template ) {
 				$gravityview_view_DT = new GravityView_DataTables_Index_DB( $view->ID );
 				$entry               = GFAPI::get_entry( $entry_id );
 				$entry               = $this->prepare_entry( $view->ID, $entry );
@@ -437,7 +473,7 @@ class GravityView_DataTables_Alt_DataSrc {
 			foreach ( $views as $view ) {
 
 				$gravityview_directory_template = get_post_meta( $view->ID, '_gravityview_directory_template', true );
-				
+
 				if ( 'datatables_table' === $gravityview_directory_template ) {
 					$gravityview_view_DT = new GravityView_DataTables_Index_DB( $view->ID );
 					$gravityview_view_DT->delete( $entry_id );
@@ -669,20 +705,14 @@ class GravityView_DataTables_Alt_DataSrc {
 
 	/**
 	 * @param $output
-	 * @param $entry
-	 * @param $field_settings
 	 * @param $view_id
 	 *
 	 * @return array
+	 * @internal param $entry
+	 * @internal param $field_settings
 	 */
-	public function index_custom_content_values( $output, $entry, $field_settings, $view_id ) {
-		if ( true === $output ) {
-			$output = array_merge( $output, GravityView_API::field_value( $entry, $field_settings ) );
-		} else {
-			$output = esc_html( $field_settings['content'] );
-		}
-
-		return array( 'custom' => $output );
+	public function index_custom_content_values( $output, $view_id ) {
+		return $output;
 	}
 
 	/**

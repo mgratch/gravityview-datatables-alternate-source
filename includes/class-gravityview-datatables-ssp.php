@@ -52,14 +52,18 @@ class GravityView_DataTables_SSP {
 					$gravityview_directory_fields = array_values( $gravityview_directory_fields );
 
 					//field indexes in the `$gravityview_directory_fields` array should match column index `$j`
-					$field_setting                = $gravityview_directory_fields[ $j ];
+					$field_setting = $gravityview_directory_fields[ $j ];
 
 					//Get the processed field value
-					$field_value                  = GravityView_API::field_value( GFAPI::get_entry( $data[ $i ]['id'] ), $field_setting );
+					$field_value = GravityView_API::field_value( GFAPI::get_entry( $data[ $i ]['id'] ), $field_setting );
 
 					//a single string is expected
-					$field_value                  = array_values( $field_value );
-					$data[ $i ][ $column['db'] ]  = $field_value[0];
+					if ( is_array( $field_value ) ) {
+						$field_value                 = array_values( $field_value );
+						$data[ $i ][ $column['db'] ] = $field_value[0];
+					} else {
+						$data[ $i ][ $column['db'] ] = $field_value;
+					}
 				}
 
 				// Is there a formatter?

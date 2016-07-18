@@ -33,7 +33,7 @@ $current_settings = gravityview_get_template_settings( $post->ID );
 
 	/* Build HTML string */
 	$key_field_html = '<th>' .
-	                  '<select class="key key_{i}" name="sort_field_key" id="gravityview_sort_field">' . gravityview_get_sortable_fields( $curr_form, $current_settings['sort_field'] ) . '</select>' .
+	                  '<select class="key key_{i}" name="sort_field_key" id="gravityview_sort_field"></select>' .
 	                  '</th>';
 
 	/* Build HTML string */

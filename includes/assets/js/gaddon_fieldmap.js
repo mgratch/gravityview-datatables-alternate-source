@@ -1,143 +1,133 @@
-var gfieldmap = function( options ) {
-	
-	var self = this;
-	
-	self.options = options;
-	self.UI = jQuery( '#gaddon-setting-row-'+ self.options.fieldName );
-	
-	self.init = function() {
+var gfieldmap = function (options) {
 
-        console.log('init');
+    var self = this;
+
+    self.options = options;
+    self.UI = jQuery('#gaddon-setting-row-' + self.options.fieldName);
+
+    self.init = function () {
 
         self.bindEvents();
-		
-		self.setupData();
-		
-		self.setupRepeater();
-					
-	};
-	
-	self.bindEvents = function() {
-		
-		self.UI.on( 'change', 'select[name="_gaddon_setting_'+ self.options.keyFieldName +'"]', function() {
 
-			var $select = jQuery( this ),
-				$input  = $select.next( '.custom-key-container' );
+        self.setupData();
 
-			if( $select.val() != 'gf_custom' ) {
-				return;
-			}
+        self.setupRepeater();
 
-			$select.fadeOut( function() {
-				$input.fadeIn().focus();
-			} );
+    };
 
-		} );
-		
-		self.UI.on( 'click', 'a.custom-key-reset', function( event ) {
+    self.bindEvents = function () {
 
-			event.preventDefault();
+        self.UI.on('change', 'select[name="_gaddon_setting_' + self.options.keyFieldName + '"]', function () {
 
-			var $reset  = jQuery( this ),
-				$input  = $reset.parents( '.custom-key-container' ),
-				$select = $input.prev( 'select.key' );
+            var $select = jQuery(this),
+                $input = $select.next('.custom-key-container');
 
-			$input.fadeOut( function() {
-				$input.find( 'input' ).val( '' ).change();
-				$select.fadeIn().focus().val( '' );
-			} );
+            if ($select.val() != 'gf_custom') {
+                return;
+            }
 
-		} );
-		
-		self.UI.closest( 'form' ).on( 'submit', function( event ) {
-			
-			jQuery( '[name^="_gaddon_setting_'+ self.options.fieldName +'_"]' ).each( function( i ) {
-				
-				jQuery( this ).removeAttr( 'name' );
-				
-			} );
-			
-		} );
-		
-	};
-	
-	self.setupData = function() {
+            $select.fadeOut(function () {
+                $input.fadeIn().focus();
+            });
 
-        console.log('setup data');
+        });
 
-        var data = jQuery( '#' + self.options.fieldId ).val();
+        self.UI.on('click', 'a.custom-key-reset', function (event) {
 
-        console.log(data);
+            event.preventDefault();
 
-		self.data = jQuery.parseJSON( data );
+            var $reset = jQuery(this),
+                $input = $reset.parents('.custom-key-container'),
+                $select = $input.prev('select.key');
 
-        console.log(self.data);
+            $input.fadeOut(function () {
+                $input.find('input').val('').change();
+                $select.fadeIn().focus().val('');
+            });
 
-		if ( ! self.data ) {
-			self.data = [ {
-				key: '',
-				value: '',
-				custom_key: ''
-			} ];
-		}
-		
-	}
-	
-	self.setupRepeater = function() {
+        });
 
-		var limit;
-		if (self.options.limit > 0){
-			limit = self.options.limit;
-		}
-		else{
-			limit = 0;
-		}
-		
-		var something = self.UI.find( 'tbody.repeater' ).repeater( {
+        self.UI.closest('form').on('submit', function (event) {
 
-			limit:              limit,
-			items:              self.data,
-			addButtonMarkup:    '<img src="'+ self.options.baseURL +'/images/add.png" style="cursor:pointer;" />',
-			removeButtonMarkup: '<img src="'+ self.options.baseURL +'/images/remove.png" style="cursor:pointer;" />',
-			callbacks:          {
-				add:  function( obj, $elem, item ) {
+            jQuery('[name^="_gaddon_setting_' + self.options.fieldName + '_"]').each(function (i) {
 
-					var key_select = $elem.find( 'select[name="_gaddon_setting_'+ self.options.keyFieldName +'"]' );
-					
-					if ( ! item.custom_key && key_select.length > 0 ) {
-						$elem.find( '.custom-key-container' ).hide();
-					}
-					
-				},
-				save: function( obj, data ) {
+                jQuery(this).removeAttr('name');
 
-                    console.log('save');
-                    console.log(obj);
-                    console.log(data);
-                    
-					for ( var i = 0; i < data.length; i++ ) {
-						
-						if ( data[i].custom_key != '' ) {
-							data[i].custom = 1;
-							data[i].key = data[i].custom_key;
-						}
+            });
+
+        });
+
+    };
+
+    self.setupData = function () {
+
+        var data = jQuery('#' + self.options.fieldId).val();
+
+        self.data = jQuery.parseJSON(data);
+
+        if (!self.data) {
+            self.data = [{
+                key: '',
+                value: '',
+                custom_key: ''
+            }];
+        }
+
+    };
+
+    self.setupRepeater = function () {
+
+        var limit;
+        if (self.options.limit > 0) {
+            limit = self.options.limit;
+        }
+        else {
+            limit = 0;
+        }
+
+        self.UI.find('tbody.repeater').repeater({
+
+            limit: limit,
+            items: self.data,
+            addButtonMarkup: '<img src="' + self.options.baseURL + '/images/add.png" style="cursor:pointer;" />',
+            removeButtonMarkup: '<img src="' + self.options.baseURL + '/images/remove.png" style="cursor:pointer;" />',
+            callbacks: {
+                add: function (obj, $elem, item) {
+
+                    var key_select = $elem.find('select[name="_gaddon_setting_' + self.options.keyFieldName + '"]');
+
+                    if (!item.custom_key && key_select.length > 0) {
+                        $elem.find('.custom-key-container').hide();
                     }
 
-                    data = jQuery.toJSON( data );
+                    if ("undefined" !== typeof mg ){
+                        mg.updateSortBoxes();
+                    }
 
-                    console.log(data);
-										
-					jQuery( '#'+ self.options.fieldId ).val( data );
-					
-				}
-			}
-			
-		} );
+                },
+                remove: function (obj, $elem, item) {
 
-        console.log(something);
-		
-	}
-	
-	return self.init();
-	
+                },
+                save: function (obj, data) {
+
+                    for (var i = 0; i < data.length; i++) {
+
+                        if (data[i].custom_key != '') {
+                            data[i].custom = 1;
+                            data[i].key = data[i].custom_key;
+                        }
+                    }
+
+                    data = jQuery.toJSON(data);
+
+                    jQuery('#' + self.options.fieldId).val(data);
+
+                }
+            }
+
+        });
+    };
+
+    return self.init();
+
 };

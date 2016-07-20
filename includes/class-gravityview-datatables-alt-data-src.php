@@ -93,7 +93,7 @@ class GravityView_DataTables_Alt_DataSrc {
 
 		$index_custom_data = apply_filters( 'gv_index_custom_content', $answer = false, $post->ID );
 
-		wp_localize_script( 'sort-filter-selectbox', 'gvDTIndex', $index_custom_data );
+		wp_localize_script( 'sort-filter-selectbox', 'gvDTIndex', array( "index_custom_content" => $index_custom_data ) );
 		wp_register_script( 'sort-filter-selectbox', GVDT_ALT_SRC_URL . "/includes/assets/js/sort-filter-selectbox{$min}.js", array( 'gvdt_fieldmap_js' ), "1.0", true );
 		wp_enqueue_script( 'sort-filter-selectbox' );
 		$this->register_noconflict_script( 'gaddon_repeater' );
@@ -146,7 +146,7 @@ class GravityView_DataTables_Alt_DataSrc {
 
 		$return_config['ajax']['data']['action'] = 'gv_alt_datatables_data';
 		$return_config['ajax']['url']            = admin_url( 'admin-ajax.php' );
-		$return_config['stateSave'] = false;
+		$return_config['stateSave']              = false;
 
 		return $return_config;
 

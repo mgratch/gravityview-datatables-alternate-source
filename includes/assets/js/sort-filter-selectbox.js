@@ -98,7 +98,10 @@ jQuery(document).ready(function ($) {
 
         if ('custom' === field_id) {
             //Does the DT View allow custom content to be indexed?
-            if ( "undefined" !== typeof gvDTIndex['index_custom_content'] && false === gvDTIndex['index_custom_content'] ){
+            
+            console.log(gvDTIndex.index_custom_content);
+            
+            if ( "undefined" !== typeof gvDTIndex.index_custom_content && 0 == gvDTIndex.index_custom_content ){
                 return self.active_columns;
             } else {
                 var j = 0;
@@ -137,9 +140,9 @@ jQuery(document).ready(function ($) {
 
 
         if ('custom' === field_id) {
-
             //Does the DT View allow custom content to be indexed?
-            if ( "undefined" !== typeof gvDTIndex && false === gvDTIndex ){
+            if ( "undefined" !== typeof gvDTIndex.index_custom_content && 0 == gvDTIndex.index_custom_content ){
+                console.log(gvDTIndex.index_custom_content);
                 return self.active_columns;
             } else {
                 var i = 0;

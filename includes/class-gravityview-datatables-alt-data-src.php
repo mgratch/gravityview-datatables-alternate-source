@@ -92,9 +92,10 @@ class GravityView_DataTables_Alt_DataSrc {
 		$this->register_noconflict_script( 'gvdt_fieldmap_js' );
 
 		$index_custom_data = apply_filters( 'gv_index_custom_content', $answer = false, $post->ID );
+		$index_custom_data = array( "index_custom_content" => (int) $index_custom_data );
 
-		wp_localize_script( 'sort-filter-selectbox', 'gvDTIndex', array( "index_custom_content" => $index_custom_data ) );
 		wp_register_script( 'sort-filter-selectbox', GVDT_ALT_SRC_URL . "/includes/assets/js/sort-filter-selectbox{$min}.js", array( 'gvdt_fieldmap_js' ), "1.0", true );
+		wp_localize_script( 'sort-filter-selectbox', 'gvDTIndex', $index_custom_data );
 		wp_enqueue_script( 'sort-filter-selectbox' );
 		$this->register_noconflict_script( 'gaddon_repeater' );
 

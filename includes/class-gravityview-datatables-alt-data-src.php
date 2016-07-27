@@ -107,10 +107,6 @@ class GravityView_DataTables_Alt_DataSrc {
 
 	public function change_gravityview_datatables_source( $dt_config, $view_id, $post ) {
 
-		if ( ! GravityView_Roles_Capabilities::has_cap( 'gravityforms_view_entries' ) ) {
-			return false;
-		}
-
 		//store original options
 		$return_config = $dt_config;
 
@@ -681,7 +677,7 @@ class GravityView_DataTables_Alt_DataSrc {
 			do_action( 'gravityview_log_debug', '[DataTables] Setting cache', $json );
 
 			// Cache results
-			//$Cache->set( $json, 'datatables_output' );
+			$Cache->set( $json, 'datatables_output' );
 
 		}
 

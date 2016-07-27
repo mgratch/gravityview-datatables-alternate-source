@@ -20,6 +20,25 @@ class GravityView_DataTables_SSP {
 	 */
 	static function data_output( $columns, $data, $table ) {
 		global $post;
+
+		$view_id = gravityview_get_view_id();
+
+		$view_id = ! empty( $view_id ) ? $view_id : $post->ID;
+
+		//get the view_data without relying on GV internal methods
+		$gravityview_directory_fields = get_post_meta( $view_id, '_gravityview_directory_fields', true );
+
+		/**
+		 * Remove directory field keys
+		 * @todo currently this plugin only works for DataTables Views but let's leave options open
+		 * @todo remove array index magic number `0`
+		 */
+		$gravityview_directory_fields = array_values( $gravityview_directory_fields );
+		$gravityview_directory_fields = $gravityview_directory_fields[0];
+
+		//remove anonymizing field keys
+		$gravityview_directory_fields = array_values( $gravityview_directory_fields );
+
 		$out = array();
 
 		for ( $i = 0, $ien = count( $data ); $i < $ien; $i ++ ) {
@@ -32,37 +51,32 @@ class GravityView_DataTables_SSP {
 				/**
 				 * Process Custom Content
 				 * @todo do not run if processed custom content is already stored
+				 * @todo find a better way to handle links
 				 */
-				if ( false !== strpos( $column['db'], 'custom_' ) ) {
 
-					$view_id = $post->ID;
 
-					//get the view_data without relying on GV internal methods
-					$gravityview_directory_fields = get_post_meta( $view_id, '_gravityview_directory_fields', true );
+				//field indexes in the `$gravityview_directory_fields` array should match column index `$j`
+				if ( isset( $gravityview_directory_fields[ $j ] ) ) {
 
-					/**
-					 * Remove directory field keys
-					 * @todo currently this plugin only works for DataTables Views but let's leave options open
-					 * @todo remove array index magic number `0`
-					 */
-					$gravityview_directory_fields = array_values( $gravityview_directory_fields );
-					$gravityview_directory_fields = $gravityview_directory_fields[0];
-
-					//remove anonymizing field keys
-					$gravityview_directory_fields = array_values( $gravityview_directory_fields );
-
-					//field indexes in the `$gravityview_directory_fields` array should match column index `$j`
 					$field_setting = $gravityview_directory_fields[ $j ];
 
-					//Get the processed field value
-					$field_value = GravityView_API::field_value( GFAPI::get_entry( $data[ $i ]['id'] ), $field_setting );
+					if ( ( ! isset( $gravityview_directory_fields[ $j ]['show_as_link'] ) &&
+					       'edit_link' == $gravityview_directory_fields[ $j ]['id'] ||
+					       'delete_link' == $gravityview_directory_fields[ $j ]['id'] ) ||
+					     ( isset( $gravityview_directory_fields[ $j ]['show_as_link'] ) &&
+					       '0' !== $gravityview_directory_fields[ $j ]['show_as_link'] ) ||
+					     ( false !== strpos( $column['db'], 'custom_' ) )
+					) {
+						//Get the processed field value
+						$field_value = GravityView_API::field_value( GFAPI::get_entry( $data[ $i ]['id'] ), $field_setting );
 
-					//a single string is expected
-					if ( is_array( $field_value ) ) {
-						$field_value                 = array_values( $field_value );
-						$data[ $i ][ $column['db'] ] = $field_value[0];
-					} else {
-						$data[ $i ][ $column['db'] ] = $field_value;
+						//a single string is expected
+						if ( is_array( $field_value ) ) {
+							$field_value                 = array_values( $field_value );
+							$data[ $i ][ $column['db'] ] = $field_value[0];
+						} else {
+							$data[ $i ][ $column['db'] ] = $field_value;
+						}
 					}
 				}
 

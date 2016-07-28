@@ -68,7 +68,11 @@ class GravityView_DataTables_SSP {
 					     ( false !== strpos( $column['db'], 'custom_' ) )
 					) {
 						//Get the processed field value
-						$field_value = GravityView_API::field_value( GFAPI::get_entry( $data[ $i ]['id'] ), $field_setting );
+						$entry       = GFAPI::get_entry( $data[ $i ]['id'] );
+						
+						//If an ID exists in the index but not the lead table skip it and clean up during health checks
+						$entry       = is_array( $entry ) ? $entry : null;
+						$field_value = GravityView_API::field_value( $entry, $field_setting );
 
 						//a single string is expected
 						if ( is_array( $field_value ) ) {

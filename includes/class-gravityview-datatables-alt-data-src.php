@@ -53,6 +53,8 @@ class GravityView_DataTables_Alt_DataSrc {
 		add_action( 'gv_duplicate_view', array( $this, 'create_table' ), 10, 2 );
 		add_action( 'gform_entry_created', array( $this, 'insert_entry' ), 10, 2 );
 		add_action( 'gform_after_update_entry', array( $this, 'update_entry' ), 10, 2 );
+		add_action( 'gravityview/delete-entry/trashed', array( $this, 'delete_entry' ), 10, 2 );
+		add_action( 'gravityview/delete-entry/deleted', array( $this, 'delete_entry' ), 10, 2 );
 		add_action( 'gform_delete_lead', array( $this, 'delete_entry' ) );
 		add_action( 'gform_update_status', array( $this, 'delete_entry' ), 10, 3 );
 	}
@@ -110,7 +112,16 @@ class GravityView_DataTables_Alt_DataSrc {
 		//store original options
 		$return_config = $dt_config;
 
-		$view_data = get_post_meta( $view_id, '_gravityview_template_settings', true );
+		$view_data                      = get_post_meta( $view_id, '_gravityview_template_settings', true );
+		$gravityview_directory_template = get_post_meta( $view_id, '_gravityview_directory_template', true );
+
+		if ( 'datatables_table' === $gravityview_directory_template ) {
+			$gravityview_view_DT = new GravityView_DataTables_Index_DB( $view_id );
+			if ( ! $gravityview_view_DT->table_exists( $gravityview_view_DT->table_name ) ) {
+				return $dt_config;
+			}
+		}
+
 
 		if ( isset( $view_data['multiple_sort_field'] ) ) {
 
@@ -373,13 +384,75 @@ class GravityView_DataTables_Alt_DataSrc {
 
 		$gravityview_view = new GravityView_View( $view_data );
 
+
+		//get the view_data without relying on GV internal methods
+		$fields = get_post_meta( $view_id, '_gravityview_directory_fields', true );
+
+		/**
+		 * Remove directory field keys
+		 * @todo currently this plugin only works for DataTables Views but let's leave options open
+		 * @todo remove array index magic number `0`
+		 */
+		$fields = array_values( $fields );
+		$fields = $fields[0];
+
+		//remove anonymizing field keys
+		$fields = array_values( $fields );
+
+
 		$view_entry = array();
 
-		// Loop through each column and set the value of the column to the field value
-		if ( ! empty( $view_data['fields']['directory_table-columns'] ) ) {
-			foreach ( $view_data['fields']['directory_table-columns'] as $field_settings ) {
-				$view_entry = array_merge( $view_entry, GravityView_API::field_value( $entry, $field_settings ) );
+
+		for ( $i = 0, $c = 0; $i < count( $fields ); $i ++ ) {
+
+			/**
+			 * Entry ID is required as the second DB column
+			 * @todo this is probably unnecessary as arrays are always sorted numerically or alphabetically
+			 */
+			if ( 'id' === $fields[ $i ]['id'] ) {
+				$include_id = true;
+				$view_entry = $view_entry + array( 'id' => $entry['id'] );
+			} else {
+				$include_id = false;
+
+				//try not to store html
+				$fields[ $i ]['show_as_link'] = 0;
+				if ( isset( $fields[ $i ]['content'] ) ) {
+
+					$index_custom_data = apply_filters( 'gv_index_custom_content', $answer = false, $view_id );
+
+					if ( $index_custom_data ) {
+						$custom_data = GravityView_API::field_value( $entry, $fields[ $i ] );
+						$custom_data = array( "custom" => $custom_data );
+					} else {
+						$custom_data = array( "custom" => esc_html( $fields[ $i ]['content'] ) );
+					}
+
+					$view_entry = array_merge( $view_entry, $custom_data );
+				} else {
+					$field_value = GravityView_API::field_value( $entry, $fields[ $i ] );
+
+					$key = is_numeric( $fields[ $i ]['id'] ) ? 'field_' . $fields[ $i ]['id'] : $fields[ $i ]['id'];
+					$key = strtolower( $key );
+					$key = str_replace( ' ', '_', $key );
+					$key = preg_replace( '/[^a-z0-9_\.\-]/', '', $key );
+					$key = preg_replace( '/[.-]/', '_', $key );
+
+
+					$field_value = is_array( $field_value ) ? $field_value : array( $key => $field_value );
+					$view_entry  = array_merge( $view_entry, $field_value );
+				}
+				if ( key_exists( 'custom', $view_entry ) ) {
+					$view_entry = array_merge( $view_entry, array( 'custom_' . $c => $view_entry['custom'] ) );
+					unset( $view_entry['custom'] );
+					$c ++;
+				}
 			}
+
+			if ( count( $fields ) - 1 === $i && ! $include_id ) {
+				$view_entry = $view_entry + array( 'id' => $entry['id'] );
+			}
+
 		}
 
 		return $view_entry;
@@ -429,9 +502,11 @@ class GravityView_DataTables_Alt_DataSrc {
 
 			if ( 'datatables_table' === $gravityview_directory_template ) {
 				$gravityview_view_DT = new GravityView_DataTables_Index_DB( $view->ID );
-				$entry               = GFAPI::get_entry( $entry_id );
-				$entry               = $this->prepare_entry( $view->ID, $entry );
-				$gravityview_view_DT->insert( $entry );
+				if ( $table_exists = $gravityview_view_DT->table_exists( $gravityview_view_DT->table_name ) ) {
+					$entry = GFAPI::get_entry( $entry_id );
+					$entry = $this->prepare_entry( $view->ID, $entry );
+					$gravityview_view_DT->insert( $entry );
+				}
 			}
 
 		}
@@ -450,11 +525,12 @@ class GravityView_DataTables_Alt_DataSrc {
 
 			if ( 'datatables_table' === $gravityview_directory_template ) {
 				$gravityview_view_DT = new GravityView_DataTables_Index_DB( $view->ID );
-				$entry               = GFAPI::get_entry( $entry_id );
-				$entry               = $this->prepare_entry( $view->ID, $entry );
-				$gravityview_view_DT->update( $entry_id, $entry );
+				if ( $gravityview_view_DT->table_exists( $gravityview_view_DT->table_name ) ) {
+					$entry = GFAPI::get_entry( $entry_id );
+					$entry = $this->prepare_entry( $view->ID, $entry );
+					$gravityview_view_DT->update( $entry_id, $entry );
+				}
 			}
-
 		}
 	}
 
@@ -464,7 +540,7 @@ class GravityView_DataTables_Alt_DataSrc {
 	 * @param string $previous_value
 	 */
 	public function delete_entry( $entry_id, $property_value = '', $previous_value = '' ) {
-		if ( $property_value == 'trash' ) {
+		if ( 'trash' == $property_value || '' === $property_value ) {
 			$form  = gravityview_get_form_from_entry_id( $entry_id );
 			$views = gravityview_get_connected_views( $form['id'] );
 			foreach ( $views as $view ) {
@@ -473,7 +549,9 @@ class GravityView_DataTables_Alt_DataSrc {
 
 				if ( 'datatables_table' === $gravityview_directory_template ) {
 					$gravityview_view_DT = new GravityView_DataTables_Index_DB( $view->ID );
-					$gravityview_view_DT->delete( $entry_id );
+					if ( $gravityview_view_DT->table_exists( $gravityview_view_DT->table_name ) ) {
+						$gravityview_view_DT->delete( $entry_id );
+					}
 				}
 
 			}

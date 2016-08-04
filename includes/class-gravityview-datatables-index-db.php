@@ -97,6 +97,23 @@ class GravityView_DataTables_Index_DB extends GravityView_Index_DB {
 	}
 
 	/**
+	 * Drop Index Table
+	 *
+	 * @access  public
+	 * @since   1.0
+	 */
+	public function drop_table() {
+
+		global $wpdb;
+
+		$drop_old_table = <<<SQL
+			DROP TABLE `$this->table_name`
+SQL;
+		$drop_old_table = esc_sql( $drop_old_table );
+		$result         = $wpdb->query( $drop_old_table );
+	}
+
+	/**
 	 * @param $col
 	 */
 	private function build_columns_array( $col ) {

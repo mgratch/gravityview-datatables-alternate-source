@@ -51,6 +51,8 @@ class GravityView_DataTables_Alt_DataSrc {
 
 		add_action( 'gravityview_view_saved', array( $this, 'create_table' ), 10, 2 );
 		add_action( 'gv_duplicate_view', array( $this, 'create_table' ), 10, 2 );
+		add_action( 'trash_gravityview', array( $this, 'drop_table' ), 10, 2 );
+
 		add_action( 'gform_entry_created', array( $this, 'insert_entry' ), 10, 2 );
 		add_action( 'gform_after_update_entry', array( $this, 'update_entry' ), 10, 2 );
 		add_action( 'gravityview/delete-entry/trashed', array( $this, 'delete_entry' ), 10, 2 );

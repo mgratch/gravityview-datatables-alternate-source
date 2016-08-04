@@ -55,6 +55,7 @@ class GravityView_DataTables_Alt_DataSrc {
 
 		add_action( 'gform_entry_created', array( $this, 'insert_entry' ), 10, 2 );
 		add_action( 'gform_after_update_entry', array( $this, 'update_entry' ), 10, 2 );
+		add_action( 'gravityview/approve_entries/updated', array( $this, 'update_entry_approval' ), 10, 2 );
 		add_action( 'gravityview/delete-entry/trashed', array( $this, 'delete_entry' ), 10, 2 );
 		add_action( 'gravityview/delete-entry/deleted', array( $this, 'delete_entry' ), 10, 2 );
 		add_action( 'gform_delete_lead', array( $this, 'delete_entry' ) );
@@ -525,6 +526,7 @@ class GravityView_DataTables_Alt_DataSrc {
 	 * @param $entry_id
 	 */
 	public function update_entry( $form, $entry_id ) {
+
 		$views = gravityview_get_connected_views( $form['id'] );
 
 		foreach ( $views as $view ) {
@@ -539,6 +541,35 @@ class GravityView_DataTables_Alt_DataSrc {
 				}
 			}
 		}
+	}
+
+	/**
+	 * @param $entry_id
+	 * @param $is_approved
+	 *
+	 * @internal param $form
+	 */
+	public function update_entry_approval( $entry_id, $is_approved ) {
+
+		add_filter( 'gravityview/common/get_entry/check_entry_display', '__return_false' );
+
+		$form = gravityview_get_form_from_entry_id( $entry_id );
+
+		$views = gravityview_get_connected_views( $form['id'] );
+
+		foreach ( $views as $view ) {
+			$gravityview_directory_template = get_post_meta( $view->ID, '_gravityview_directory_template', true );
+
+			if ( 'datatables_table' === $gravityview_directory_template ) {
+				$gravityview_view_DT = new GravityView_DataTables_Index_DB( $view->ID );
+				if ( $gravityview_view_DT->table_exists( $gravityview_view_DT->table_name ) ) {
+					$entry = GFAPI::get_entry( $entry_id );
+					$entry = $this->prepare_entry( $view->ID, $entry );
+					$gravityview_view_DT->update( $entry_id, $entry );
+				}
+			}
+		}
+		remove_filter( 'gravityview/common/get_entry/check_entry_display', '__return_false' );
 	}
 
 	/**

@@ -381,7 +381,7 @@ SQL;
 		$columns = $this->get_column_defaults();
 
 		if ( empty( $columns ) ) {
-			return false;
+			exit();
 		}
 
 		//always make sure entry id is set
@@ -397,49 +397,16 @@ SQL;
 		//always make sure is_approved is set
 		if ( ! isset( $this->columns['is_approved'] ) ) {
 			$this->columns['is_approved'] = "";
-		//index_id should always be the first column
-		$table_columns = "index_id bigint(20) NOT NULL AUTO_INCREMENT,";
-
-		$table_columns .= "\n\t";
-
-		//Entry ID should always be the second column
-		$type = $this->generate_column_schema( 'id' );
-
-		/**
-		 * determine if we need a space
-		 */
-		$spacer = '';
-
-		$default  = "";
-		$not_null = 'NOT NULL,';
-		$table_columns .= "id " . $type . " " . $default . $spacer . $not_null . "\n\t";
-
-		foreach ( $columns as $column_key => $value ) {
-
-			if ( 'id' === $column_key ) {
-				continue;
-			}
-
-			$type    = $this->generate_column_schema( $column_key );
-			$default = '' === $value ? '""' : $value;
-
-			/**
-			 * determine if we need a space
-			 */
-			$spacer = "None" !== $default ? ' ' : '';
-
-			$default  = "None" === $default ? '' : "DEFAULT $default";
-			$not_null = null === $default ? ',' : 'NOT NULL,';
-			$table_columns .= $column_key . " " . $type . " " . $default . $spacer . $not_null . "\n\t";
 		}
+
+		$table_columns = $this->generate_table_column_string( $columns );
 
 		$table_keys = "PRIMARY KEY  (id),\n\t";
 		$table_keys .= "KEY is_approved (is_approved),\n\t";
 		$table_keys .= "KEY date_created (date_created),\n\t";
 		$table_keys .= "KEY index_id (index_id)";
 
-		$sql = $this->format_table( $this->table_name, $table_columns, $table_keys );
-
+		$sql              = $this->format_table( $this->table_name, $table_columns, $table_keys );
 		$existing_columns = $this->table_exists( $table_name ) ? $wpdb->get_col( "DESC {$table_name}", 0 ) : array();
 
 		$new_columns = array_keys( $columns );
@@ -447,26 +414,30 @@ SQL;
 		//set index id to ensure it doesn't get dropped after the diff
 		$new_columns[] = 'index_id';
 
-		$columns_drop = array_diff( $existing_columns, $new_columns );
+		$dropped_columns = array_diff( $existing_columns, $new_columns );
 
 		/**
 		 * if $existing_columns and $new_columns match do not update
 		 */
-		$dropped_columns = $columns_drop;
-
 		if ( ! empty( $dropped_columns ) ) {
 			foreach ( $dropped_columns as $dropped_column ) {
 				unset( $existing_columns[ $dropped_column ] );
 			}
 		}
 
-		$column_diff = array_diff( $new_columns, $existing_columns );
+		$column_diff  = array_diff( $new_columns, $existing_columns );
+		$index_id_key = array_search( 'index_id', $column_diff );
+		unset( $column_diff[ $index_id_key ] );
 
 		if ( ! empty( $column_diff ) ) {
+
+			// Rather than executing an SQL query directly, we'll use the dbDelta function in wp-admin/includes/upgrade.php (we'll have to load this file, as it is not loaded by default)
+			require_once( ABSPATH . 'wp-admin/includes/upgrade.php' );
+
 			$result = dbDelta( $sql );
 
 			if ( false !== $result ) {
-				$this->handle_all( $this->view_id, $new_columns );
+				$this->handle_all( $this->view_id, $column_diff );
 			}
 
 			update_option( $this->table_name . '_db_version', $this->version );
@@ -476,24 +447,28 @@ SQL;
 		 * Drop columns after updated the DB structure if needed
 		 */
 
-		if ( ! empty( $columns_drop ) ) {
+		if ( ! empty( $dropped_columns ) ) {
 
 			$tmp_table_name  = $table_name . "_tmp";
 			$drop_table_name = $table_name . "_drop";
 
+			//make sure index_id and id are at the front
+			array_unshift( $new_columns, 'id' );
+			array_unshift( $new_columns, 'index_id' );
+			$new_columns = array_unique( $new_columns );
+
 			//store new columns array as a comma separated string
 			$tmp_col_copy = implode( ", ", $new_columns );
 
+			$sql = $this->format_table( $tmp_table_name, $table_columns, $table_keys, false, true, false );
+
 			//Copy table and applicable columns
-			$create_tmp_table = <<<SQL
-			CREATE TABLE `$tmp_table_name` AS
-				SELECT $tmp_col_copy
-				FROM $table_name
-SQL;
-			$result           = $wpdb->query( $create_tmp_table );
+			$create_tmp_table = "SELECT $tmp_col_copy FROM $table_name;";
+
+			$result = $wpdb->query( $sql . $create_tmp_table );
 
 			if ( false === $result ) {
-				return false;
+				exit();
 			}
 
 			//prep old table for drop
@@ -503,7 +478,7 @@ SQL;
 			$result            = $wpdb->query( $rename_curr_table );
 
 			if ( false === $result ) {
-				return false;
+				exit();
 			}
 			//Make tmp table the new index table
 			$rename_new_table = <<<SQL
@@ -512,7 +487,7 @@ SQL;
 			$result           = $wpdb->query( $rename_new_table );
 
 			if ( false === $result ) {
-				return false;
+				exit();
 			}
 			//Drop the old index table
 			$drop_old_table = <<<SQL
@@ -521,7 +496,7 @@ SQL;
 			$result         = $wpdb->query( $drop_old_table );
 
 			if ( false === $result ) {
-				return false;
+				exit();
 			}
 		}
 
@@ -776,6 +751,46 @@ SQL;
 		}
 		delete_transient( "gv_index_" . $view_id );
 		wp_queue( new WP_Example_Job( null, $view_id, array(), 'sync-all', $new_columns ) );
+	private function generate_table_column_string( $columns ) {
+		//index_id should always be the first column
+		$table_columns = "index_id bigint(20) NOT NULL AUTO_INCREMENT,";
+
+		$table_columns .= "\n\t";
+
+		//Entry ID should always be the second column
+		$type = $this->generate_column_schema( 'id' );
+
+		/**
+		 * determine if we need a space
+		 */
+		$spacer = '';
+
+		$default  = "";
+		$not_null = 'NOT NULL,';
+		$table_columns .= "id " . $type . " " . $default . $spacer . $not_null . "\n\t";
+
+		foreach ( $columns as $column_key => $value ) {
+
+			if ( 'id' === $column_key ) {
+				continue;
+			}
+
+			$type    = $this->generate_column_schema( $column_key );
+			$default = '' === $value ? '""' : $value;
+
+			/**
+			 * determine if we need a space
+			 */
+			$spacer = "None" !== $default ? ' ' : '';
+
+			$default  = "None" === $default ? '' : "DEFAULT $default";
+			$not_null = null === $default ? ',' : 'NOT NULL,';
+			$table_columns .= $column_key . " " . $type . " " . $default . $spacer . $not_null . "\n\t";
+		}
+
+
+		return $table_columns;
+
 	}
 
 

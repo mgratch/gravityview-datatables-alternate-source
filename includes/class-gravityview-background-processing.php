@@ -4,7 +4,7 @@ if ( ! class_exists( "WP_Job" ) ) {
 	return;
 }
 
-class WP_Example_Job extends WP_Job {
+class WP_GVDT_Index_Job extends WP_Job {
 
 	/**
 	 * @var string
@@ -68,6 +68,9 @@ class WP_Example_Job extends WP_Job {
 	 */
 	public function handle() {
 
+		//don't used cache results for background processing
+		add_filter( 'gravityview_use_cache', '__return_false' );
+
 		global $wpdb;
 
 		$processor = new GravityView_DataTables_Index_DB( $this->view_id );
@@ -88,7 +91,7 @@ class WP_Example_Job extends WP_Job {
 				return false;
 			}
 
-			$page_count = ceil(intval( $entry_count ) / 250);
+			$page_count = ceil( intval( $entry_count ) / 250 );
 			$args       = array();
 
 			$offset = get_transient( "gv_index_" . $this->view_id );
@@ -96,7 +99,7 @@ class WP_Example_Job extends WP_Job {
 
 			for ( $i = 0; $i < $page_count; $i ++ ) {
 				$args['offset'] = max( $i * 250, $offset );
-				wp_queue( new WP_Example_Job( null, $this->view_id, $args, 'sync-group', $this->new_columns ) );
+				wp_queue( new WP_GVDT_Index_Job( null, $this->view_id, $args, 'sync-group', $this->new_columns ) );
 				set_transient( "gv_index_" . $this->view_id, $args['offset'] );
 			}
 
@@ -104,14 +107,14 @@ class WP_Example_Job extends WP_Job {
 			$src     = GravityView_DataTables_Alt_DataSrc::get_instance();
 			$entries = $src->get_view_data( $this->args, $this->view_id );
 
-			if ( ! $entries ) {
+			if ( ! isset( $entries['data'] ) || ! $entries['data'] || empty( $entries['data'] ) || is_null( $entries['data'] ) ) {
 				return false;
 			}
 
 			$entries = $entries['data'];
 			foreach ( $entries as $entry ) {
 				$result = $processor->update_index( $entry, $this->new_columns );
-				$this->log( "inserted: " . boolval($result) . "\n\t" . $wpdb->last_error );
+				$this->log( "inserted: " . boolval( $result ) . "\n\t" . $wpdb->last_error );
 			}
 
 		}

@@ -618,9 +618,23 @@ class GravityView_DataTables_Alt_DataSrc {
 	 * @param string $previous_value
 	 */
 	public function delete_entry( $entry_id, $property_value = '', $previous_value = '' ) {
-		if ( 'trash' == $property_value || '' === $property_value ) {
-			$form  = gravityview_get_form_from_entry_id( $entry_id );
-			$views = gravityview_get_connected_views( $form['id'] );
+		if ( 'trash' === $property_value || '' === $property_value ) {
+			$search_criteria = array();
+
+			$form = gravityview_get_form_from_entry_id( $entry_id );
+
+			if ( ! $form ) {
+				$search_criteria['field_filters'][] = array( 'key' => 'id', 'value' => $entry_id );
+				$search_criteria['status']          = 'trash';
+				$paging                             = array( 'offset' => 0, 'page_size' => 1 );
+				$entry                              = GFAPI::get_entries( 0, $search_criteria, null, $paging );
+				$entry                              = $entry[0];
+				$form_id                            = $entry['form_id'];
+			} else {
+				$form_id = $form['id'];
+			}
+
+			$views = gravityview_get_connected_views( $form_id );
 			foreach ( $views as $view ) {
 
 				$gravityview_directory_template = get_post_meta( $view->ID, '_gravityview_directory_template', true );

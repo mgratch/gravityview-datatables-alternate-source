@@ -526,6 +526,13 @@ class GravityView_DataTables_Alt_DataSrc {
 
 		if ( 'datatables_table' === $gravityview_directory_template ) {
 			$this->generate_index_table( $post_id );
+	public function drop_table( $post_id, $atts ) {
+
+		$gravityview_directory_template = get_post_meta( $post_id, '_gravityview_directory_template', true );
+
+		if ( 'datatables_table' === $gravityview_directory_template ) {
+			$gravityview_view_DT = new GravityView_DataTables_Index_DB( $post_id );
+			$gravityview_view_DT->drop_table();
 		}
 	}
 

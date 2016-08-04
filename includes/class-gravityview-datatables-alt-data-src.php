@@ -525,7 +525,35 @@ class GravityView_DataTables_Alt_DataSrc {
 		$gravityview_directory_template = get_post_meta( $post_id, '_gravityview_directory_template', true );
 
 		if ( 'datatables_table' === $gravityview_directory_template ) {
-			$this->generate_index_table( $post_id );
+			$gravityview_view_DT = new GravityView_DataTables_Index_DB( $post_id );
+			$gravityview_view_DT->create_table();
+		}
+	}
+
+	/**
+	 * On plugin activation begin creating an index table for each datatable view
+	 */
+	public function create_tables() {
+
+		global $wpdb;
+
+		if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) {
+			return;
+		}
+
+		$post_ids = $wpdb->get_results( $wpdb->prepare( "SELECT post_id FROM $wpdb->postmeta WHERE meta_key = %s", "_gravityview_datatables_settings" ), ARRAY_A );
+
+		if ( ! $post_ids ) {
+			return;
+		}
+
+		foreach ( $post_ids as $post ) {
+			$gravityview_view_DT = new GravityView_DataTables_Index_DB( $post['post_id'] );
+			$gravityview_view_DT->create_table();
+		}
+
+	}
+
 	public function drop_table( $post_id, $atts ) {
 
 		$gravityview_directory_template = get_post_meta( $post_id, '_gravityview_directory_template', true );

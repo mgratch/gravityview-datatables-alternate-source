@@ -852,7 +852,68 @@ class GravityView_DataTables_Alt_DataSrc {
 
 		require_once GVDT_ALT_SRC_DIR . 'includes/class-gravityview-datatables-ssp.php';
 
-		$output = GravityView_DataTables_SSP::simple( $_POST, $sql_details, $table, $primaryKey, $new_columns );
+		$approved_pos = array_search( "is_approved", array_keys( $columns ) );
+
+		if ( '1' == $atts['show_only_approved'] ) {
+			$_POST['columns'][] = array(
+				'data'       => $approved_pos,
+				'name'       => 'is_approved',
+				'orderable'  => 'false',
+				'search'     => array(
+					'regex' => 'false',
+					'value' => 'Approved'
+				),
+				'searchable' => "true"
+			);
+		}
+
+		/**
+		 * check for advanced filters
+		 * @todo check plugin exists and is active
+		 */
+		if ( $filter = get_post_meta( $view_id, '_gravityview_filters', true ) ) {
+			unset( $filter['mode'] );
+			$filters = "";
+			for ( $i = 0, $count = count( $filter ); $i < $count; $i ++ ) {
+				$rule         = $filter[ $i ];
+				$column_name  = is_numeric( $rule['key'] ) ? "field_" . $rule['key'] : $rule['key'];
+				$operator     = $rule['operator'];
+				$value        = $rule['value'];
+				$or_statement = '';
+
+				switch ( $operator ):
+					case 'is':
+						$operator     = "=";
+						$or_statement = " OR $column_name LIKE '%$value%'";
+						break;
+					case 'isnot':
+						$operator = "<>";
+						break;
+					case '>':
+						$operator = '>';
+						break;
+					case '<':
+						$operator = '<';
+						break;
+					case 'contains':
+						$operator = 'like';
+						$value    = "%$value%";
+						break;
+				endswitch;
+
+				if ( 0 === $i ) {
+					$filters .= "(" . $column_name . $operator . "'$value'" . $or_statement . ")";
+				} else {
+					$filters .= " AND " . "(" . $column_name . $operator . "'$value'" . $or_statement . ")";
+				}
+
+
+			}
+			$output = GravityView_DataTables_SSP::complex( $_POST, $sql_details, $table, $primaryKey, $new_columns, false, $filters );
+		} else {
+			$output = GravityView_DataTables_SSP::simple( $_POST, $sql_details, $table, $primaryKey, $new_columns );
+		}
+
 
 		//$view_entries = $gravityview_view_DT->get_entries( $atts, false );
 

@@ -65,6 +65,16 @@ class GravityView_DataTables_Index_DB extends GravityView_Index_DB {
 
 		if ( $this->view_data && isset( $this->view_data['fields']['directory_table-columns'] ) ) {
 			$columns = $this->view_data['fields']['directory_table-columns'];
+			$columns = array_values( $columns );
+			$filters = get_post_meta( $this->view_id, '_gravityview_filters', true );
+
+			if ( $filters ) {
+				unset( $filters['mode'] );
+				foreach ( $filters as $filter ) {
+					$columns[] = array( 'id' => $filter['key'] );
+				}
+			}
+
 			array_map( array( &$this, 'build_columns_array' ), $columns );
 
 			//always make sure entry id is set
@@ -135,16 +145,12 @@ SQL;
 		 * @todo determine if this is useful
 		 */
 		if ( isset( $this->columns[ $label ] ) || 'custom' === $label ) {
-			for ( $i = 0; $i < count( $this->columns ); $i ++ ) {
+			for ( $i = 0; $i < count( $this->columns ) + 1; $i ++ ) {
 				$new_label = $label . "_{$i}";
 				if ( ! isset( $this->columns[ $new_label ] ) ) {
 					$label = $new_label;
 					break;
 				}
-			}
-			//don't forget if it's the first column AND it's a custom column
-			if ( 0 === count( $this->columns ) ){
-				$label = $label . "_0";
 			}
 		}
 

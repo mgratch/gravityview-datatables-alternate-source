@@ -122,10 +122,20 @@ class GravityView_DataTables_Alt_DataSrc {
 
 		$view_data                      = get_post_meta( $view_id, '_gravityview_template_settings', true );
 		$gravityview_directory_template = get_post_meta( $view_id, '_gravityview_directory_template', true );
+		$form_id                        = get_post_meta( $view_id, '_gravityview_form_id', true );
+		$index_custom_data              = apply_filters( 'gv_index_custom_content', $answer = false, $view_id );
 
 		if ( 'datatables_table' === $gravityview_directory_template ) {
 			$gravityview_view_DT = new GravityView_DataTables_Index_DB( $view_id );
-			if ( ! $gravityview_view_DT->table_exists( $gravityview_view_DT->table_name ) ) {
+
+			/**
+			 * @var array $search_criteria
+			 * @see \GravityView_frontend::get_search_criteria
+			 */
+			$search_criteria = GravityView_frontend::get_search_criteria( $view_data, $form_id );
+			$entries_count   = (int) GFAPI::count_entries( $form_id, $search_criteria );
+			$dt_count        = (int) $gravityview_view_DT->count( $search_criteria );
+			if ( ! $gravityview_view_DT->table_exists( $gravityview_view_DT->table_name ) || $entries_count !== $dt_count ) {
 				return $dt_config;
 			}
 		}
@@ -151,7 +161,6 @@ class GravityView_DataTables_Alt_DataSrc {
 					$sort_field = get_object_vars( $sort_fields[ $j ] );
 					if ( $col == $sort_field['key'] ) {
 						$return_config['order'][] = array( $i, $sort_field['value'] );
-						$index_custom_data        = apply_filters( 'gv_index_custom_content', $answer = false, $view_id );
 						if ( $index_custom_data ) {
 							$return_config['columns'][ $i ]['orderable'] = true;
 						}
@@ -163,6 +172,11 @@ class GravityView_DataTables_Alt_DataSrc {
 		$return_config['ajax']['data']['action'] = 'gv_alt_datatables_data';
 		$return_config['ajax']['url']            = admin_url( 'admin-ajax.php' );
 		$return_config['stateSave']              = false;
+
+
+		/**
+		 * @todo should we cache $return_config? or prevent the above checks for a 'mature' View?
+		 */
 
 		return $return_config;
 

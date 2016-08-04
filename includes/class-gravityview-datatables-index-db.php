@@ -192,42 +192,57 @@ SQL;
 
 		global $wpdb;
 
-		$defaults            = $this->get_columns();
+		if ( isset( $args['field_filters'] ) ) {
+			$field_filter_array = array();
+			$field_filters      = $args['field_filters'];
+			foreach ( $field_filters as $field_filter => $val ) {
+				if ( 'mode' !== $field_filter ) {
+					if ( is_array( $val ) ) {
+						$val = array_values( $val );
+						list( $c, $v ) = $val;
+						$field_filter_array[ $c ] = $v;
+					}
+				}
+			}
+			$args = $field_filter_array;
+		}
+
+		$defaults            = $this->get_column_defaults();
 		$defaults['orderby'] = 'index_id';
 		$defaults['order']   = 'DESC';
 
 		$args = wp_parse_args( $args, $defaults );
 
-		if ( $args['number'] < 1 ) {
+		if ( isset( $args['number'] ) && $args['number'] < 1 ) {
 			$args['number'] = PHP_INT_MAX;
 		}
 
 		$where = '';
 
-		foreach ( $args as $key => $value ) {
-			if ( ! empty( $value ) && 'date_created' !== $key && 'order' !== $key && 'orderby' !== $key && 'count' !== $key ) {
+		foreach ( $args as $col_name => $default_value ) {
+			if ( ! empty( $default_value ) ) {
+				if ( 'None' !== $default_value && 'date_created' !== $col_name && 'order' !== $col_name && 'orderby' !== $col_name && 'count' !== $col_name && 'status' !== $col_name ) {
 
-				if ( is_array( $value ) ) {
-					$values = implode( ',', $value );
-				} else {
-					$values = intval( $value );
+					if ( is_array( $default_value ) ) {
+						$default_value = implode( ',', $default_value );
+					}
+
+					$where .= $wpdb->prepare( "$col_name IN( %s ) ", $default_value );
+
 				}
+			} elseif ( ! empty( $default_value ) && 'date_created' == $col_name ) {
 
-				$where .= "WHERE `$key` IN( {$values} ) ";
+				if ( is_array( $default_value ) ) {
 
-			} elseif ( ! empty( $value ) && 'date_created' == $key ) {
+					if ( ! empty( $default_value['start'] ) ) {
 
-				if ( is_array( $value ) ) {
-
-					if ( ! empty( $value['start'] ) ) {
-
-						if ( false !== strpos( $value['start'], ':' ) ) {
+						if ( false !== strpos( $default_value['start'], ':' ) ) {
 							$format = 'Y-m-d H:i:s';
 						} else {
 							$format = 'Y-m-d 00:00:00';
 						}
 
-						$start = date( $format, strtotime( $value['start'] ) );
+						$start = date( $format, strtotime( $default_value['start'] ) );
 
 						if ( ! empty( $where ) ) {
 
@@ -241,15 +256,15 @@ SQL;
 
 					}
 
-					if ( ! empty( $value['end'] ) ) {
+					if ( ! empty( $default_value['end'] ) ) {
 
-						if ( false !== strpos( $value['end'], ':' ) ) {
+						if ( false !== strpos( $default_value['end'], ':' ) ) {
 							$format = 'Y-m-d H:i:s';
 						} else {
 							$format = 'Y-m-d 23:59:59';
 						}
 
-						$end = date( $format, strtotime( $value['end'] ) );
+						$end = date( $format, strtotime( $default_value['end'] ) );
 
 						if ( ! empty( $where ) ) {
 
@@ -265,9 +280,9 @@ SQL;
 
 				} else {
 
-					$year  = date( 'Y', strtotime( $value ) );
-					$month = date( 'm', strtotime( $value ) );
-					$day   = date( 'd', strtotime( $value ) );
+					$year  = date( 'Y', strtotime( $default_value ) );
+					$month = date( 'm', strtotime( $default_value ) );
+					$day   = date( 'd', strtotime( $default_value ) );
 
 					if ( empty( $where ) ) {
 						$where .= " WHERE";
@@ -298,7 +313,15 @@ SQL;
 
 			if ( true === $count ) {
 
-				$results = absint( $wpdb->get_var( "SELECT COUNT({$this->primary_key}) FROM {$this->table_name} {$where};" ) );
+				if ( ! empty( $where ) ) {
+					$where = "WHERE " . $where;
+				}
+
+				$sql     = <<<SQL
+				SELECT COUNT($this->primary_key) FROM $this->table_name $where;
+SQL;
+				$results = absint(
+					$wpdb->get_var( $sql ) );
 
 			} else {
 

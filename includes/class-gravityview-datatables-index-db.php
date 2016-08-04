@@ -364,6 +364,7 @@ SQL;
 	 *
 	 * @param  array $args
 	 *
+	 * @see \GravityView_frontend::get_search_criteria
 	 * @return int
 	 */
 	public function count( $args = array() ) {
@@ -653,11 +654,13 @@ SQL;
 		return (string) $field_default;
 	}
 
-	private function format_table( $table_name, $table_columns, $table_keys = null, $charset_collate = null ) {
+	private function format_table( $table_name, $table_columns, $table_keys = null, $charset_collate = null, $create = true, $end = true ) {
 		global $wpdb;
 
-		if ( $charset_collate == null ) {
+		if ( null === $charset_collate ) {
 			$charset_collate = $wpdb->get_charset_collate();
+		} elseif ($charset_collate === false){
+			$charset_collate = "";
 		}
 
 		$table_columns = strtolower( $table_columns );
@@ -672,10 +675,12 @@ SQL;
 
 		$table_structure = str_replace( $search_array, $replace_array, $table_structure );
 
-		$sql = "CREATE TABLE $table_name $table_structure $charset_collate;";
+		$create = true === $create ? "CREATE TABLE " : "";
+		$end    = true === $end ? ";" : "";
 
-		// Rather than executing an SQL query directly, we'll use the dbDelta function in wp-admin/includes/upgrade.php (we'll have to load this file, as it is not loaded by default)
-		require_once( ABSPATH . 'wp-admin/includes/upgrade.php' );
+		$sql = "$create";
+		$sql .= "$table_name $table_structure $charset_collate";
+		$sql .= "$end";
 
 		// The dbDelta function examines the current table structure, compares it to the desired table structure, and either adds or modifies the table as necessary
 		return $sql;
@@ -683,12 +688,11 @@ SQL;
 
 	/**
 	 * @param $data
-	 * @param string $type
 	 * @param array $new_columns
 	 *
 	 * @return false|int
 	 */
-	public function update_index( $data, $type = '', $new_columns = array() ) {
+	public function update_index( $data, $new_columns = array() ) {
 		global $wpdb;
 
 		// Set default values
@@ -711,23 +715,29 @@ SQL;
 
 		$table_name     = $this->table_name;
 		$column_list    = implode( ", ", $data_keys );
-		$values         = implode( ", ", $data );
 		$column_formats = implode( ", ", $column_formats );
-		$new_data       = array_intersect_key( $data, $new_columns );
 		$new_values     = array();
 
-		foreach ( $new_data as $key => $val ) {
-			$new_values[] = "$key = $val";
-		}
+		if ( $data_keys !== $new_columns ) {
 
-		$new_values = implode( ", ", $new_values );
+			$new_data = array_intersect_key( $data_keys, $new_columns );
+
+			foreach ( $new_data as $key => $val ) {
+				$value = '';
+				if ( 'date_created' === $val ) {
+					$value = strtotime( $data[ $val ] );
+				}
+				$new_values[] = "$val = $value";
+			}
+
+			$new_values = implode( ", ", $new_values );
+		}
 
 		if ( empty( $new_values ) ) {
 			$new_values = "id=id";
 		}
 
-
-		$update_index_table = "INSERT INTO `$table_name` ($column_list) VALUES ($column_formats) ON DUPLICATE KEY UPDATE $new_values";
+		$update_index_table = "REPLACE INTO `$table_name` ($column_list) VALUES ($column_formats)";
 
 		$query = $wpdb->prepare( $update_index_table, $data );
 
@@ -755,8 +765,12 @@ SQL;
 		if ( 'gravityview' != $post->post_type ) {
 			return;
 		}
+
 		delete_transient( "gv_index_" . $view_id );
-		wp_queue( new WP_Example_Job( null, $view_id, array(), 'sync-all', $new_columns ) );
+
+		wp_queue( new WP_GVDT_Index_Job( null, $view_id, array(), 'sync-all', $new_columns ) );
+	}
+
 	private function generate_table_column_string( $columns ) {
 		//index_id should always be the first column
 		$table_columns = "index_id bigint(20) NOT NULL AUTO_INCREMENT,";

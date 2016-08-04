@@ -35,17 +35,22 @@ class GravityView_DataTables_Alt_DataSrc {
 			"GV_Extension_DataTables_Data",
 			'get_datatables_data'
 		), 10 );
+
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_admin_scripts' ), 11 );
 		add_action( 'gravityview_default_args', array( $this, 'add_hidden_field' ), 10 );
 
 		add_filter( 'gravityview_use_cache', '__return_false' );
+
 		add_filter( 'gravityview/metaboxes/default', array( $this, 'remove_metabox_tab' ) );
+
 		add_filter( 'gravityview_field_entry_value', array( $this, 'format_entry_value_array' ), 10, 4 );
 		add_filter( 'gv_index_custom_content', array( $this, 'index_custom_content_values' ), 11, 2 );
+
 		add_filter( 'gravityview_datatables_js_options', array(
 			$this,
 			'change_gravityview_datatables_source'
 		), 9999, 3 );
+
 		add_action( 'wp_ajax_gv_alt_datatables_data', array( $this, 'get_alt_datatables_data' ), 10 );
 		add_action( 'wp_ajax_nopriv_gv_alt_datatables_data', array( $this, 'get_alt_datatables_data' ), 10 );
 
@@ -60,6 +65,8 @@ class GravityView_DataTables_Alt_DataSrc {
 		add_action( 'gravityview/delete-entry/deleted', array( $this, 'delete_entry' ), 10, 2 );
 		add_action( 'gform_delete_lead', array( $this, 'delete_entry' ) );
 		add_action( 'gform_update_status', array( $this, 'delete_entry' ), 10, 3 );
+
+
 	}
 
 	/**
@@ -346,22 +353,6 @@ class GravityView_DataTables_Alt_DataSrc {
 		$output = $data;
 
 		return $output;
-	}
-
-	/**
-	 * Save post metadata when a post is saved.
-	 *
-	 * @param int $post_id The post ID.
-	 *
-	 * @internal param post $post The post object.
-	 * @internal param bool $update Whether this is an existing post being updated or not.
-	 * @return bool
-	 */
-	public function generate_index_table( $post_id ) {
-		$gravityview_view_DT = new GravityView_DataTables_Index_DB( $post_id );
-		$result              = $gravityview_view_DT->create_table();
-
-		return $result;
 	}
 
 	/**

@@ -12,13 +12,14 @@ class GravityView_DataTables_SSP {
 	 *
 	 * @param  array $columns Column information array
 	 * @param  array $data Data from the SQL get
-	 * @param $table
 	 *
 	 * @return array Formatted data in a row based format
 	 *
+	 * @internal param $table
+	 *
 	 * @todo Process GV Data i.e. links and custom content as well
 	 */
-	static function data_output( $columns, $data, $table ) {
+	static function data_output( $columns, $data ) {
 		global $post;
 
 		$view_id = gravityview_get_view_id();

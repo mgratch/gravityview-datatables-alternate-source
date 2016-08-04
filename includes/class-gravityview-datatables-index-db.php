@@ -72,6 +72,16 @@ class GravityView_DataTables_Index_DB extends GravityView_Index_DB {
 				$this->columns['id'] = "None";
 			}
 
+			//always make sure date_created is set
+			if ( ! isset( $this->columns['date_created'] ) ) {
+				$this->columns['date_created'] = "None";
+			}
+
+			//always make sure is_approved is set
+			if ( ! isset( $this->columns['is_approved'] ) ) {
+				$this->columns['is_approved'] = "";
+			}
+
 		} else {
 			return;
 		}
@@ -379,7 +389,14 @@ SQL;
 			$columns['id'] = "None";
 		}
 
+		//always make sure date_created is set
+		if ( ! isset( $this->columns['date_created'] ) ) {
+			$this->columns['date_created'] = "None";
+		}
 
+		//always make sure is_approved is set
+		if ( ! isset( $this->columns['is_approved'] ) ) {
+			$this->columns['is_approved'] = "";
 		//index_id should always be the first column
 		$table_columns = "index_id bigint(20) NOT NULL AUTO_INCREMENT,";
 
@@ -417,6 +434,8 @@ SQL;
 		}
 
 		$table_keys = "PRIMARY KEY  (id),\n\t";
+		$table_keys .= "KEY is_approved (is_approved),\n\t";
+		$table_keys .= "KEY date_created (date_created),\n\t";
 		$table_keys .= "KEY index_id (index_id)";
 
 		$sql = $this->format_table( $this->table_name, $table_columns, $table_keys );
@@ -594,6 +613,7 @@ SQL;
 				$field_default = 'decimal(19.2)';
 				break;
 			case 'payment_method':
+			case 'is_approved':
 				$field_default = 'varchar(30)';
 				break;
 			case 'transaction_id':

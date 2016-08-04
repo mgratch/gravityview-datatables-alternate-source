@@ -191,7 +191,10 @@ class GravityView_DataTables_Alt_DataSrc {
 	public function get_view_data( $atts = array(), $view_id ) {
 		global $gravityview_view;
 
-		$view_data = GravityView_View_Data::getInstance()->get_view( $view_id );
+		$form_id                        = get_post_meta( $view_id, '_gravityview_form_id', true );
+		$gravityview_directory_template = get_post_meta( $view_id, '_gravityview_directory_template', true );
+		$index_custom_data              = apply_filters( 'gv_index_custom_content', $answer = false, $view_id );
+		$view_data                      = GravityView_View_Data::getInstance()->get_view( $view_id );
 
 		// Prevent error output
 		ob_start();
@@ -215,132 +218,132 @@ class GravityView_DataTables_Alt_DataSrc {
 
 		$gravityview_view = new GravityView_View( $view_data );
 
-		if ( class_exists( 'GravityView_Cache' ) ) {
+		/**
+		 * @todo Use Delicious Brain method to detect bottleneck and process at that point
+		 */
+		$atts['page_size'] = '250';
+		$atts['offset']    = isset( $atts['offset'] ) ? intval( $atts['offset'] ) : 0;
 
-			// We need to fetch the search criteria and pass it to the Cache so that the search is used when generating the cache transient key.
-			$search_criteria = GravityView_frontend::get_search_criteria( $atts, $view_data['form_id'] );
+		$paging = array(
+			'offset'    => $atts['offset'],
+			'page_size' => $atts['page_size']
+		);
 
-			// make sure to allow late filter ( used on Advanced Filter extension )
-			$criteria = apply_filters( 'gravityview_search_criteria', array( 'search_criteria' => $search_criteria ), $view_data['form_id'], $view_id );
+		$status = apply_filters( 'gravityview_status', 'active', $atts );
 
-			$atts['search_criteria'] = $criteria['search_criteria'];
+		$view_entries = GFAPI::get_entries( $form_id, array( 'status' => $status ), null, $paging );
 
-			// Cache key should also depend on the View assigned fields
-			$atts['directory_table-columns'] = ! empty( $view_data['fields']['directory_table-columns'] ) ? $view_data['fields']['directory_table-columns'] : array();
+		// build output data
+		$data            = array();
+		$data['form_id'] = $view_data['form_id'];
 
-			// cache depends on user session
-			if ( is_user_logged_in() ) {
+		//check for multisort fields
+		$multi_sort  = isset( $atts['multiple_sort_field'] ) && ! empty( $atts['multiple_sort_field'] ) ? json_decode( $atts['multiple_sort_field'], ARRAY_A ) : false;
+		$sort_fields = array();
 
-				/**
-				 * @see wp_get_session_token()
-				 */
-				$cookie = wp_parse_auth_cookie( '', 'logged_in' );
-				$token  = ! empty( $cookie['token'] ) ? $cookie['token'] : '';
-
-				$user_session = get_current_user_id() . '_' . $token;
-
-				$atts['user_session'] = $user_session;
-
-				$Cache = new GravityView_Cache( $view_data['form_id'], $atts );
-
-				if ( $output = $Cache->get() ) {
-
-					do_action( 'gravityview_log_debug', '[DataTables] Cached output found; using cache with key ' . $Cache->get_key() );
-
+		//if multisort fields exist grab the 'custom' keys
+		if ( $multi_sort ) {
+			foreach ( $multi_sort as $sort_field ) {
+				if ( ! is_numeric( $sort_field['key'] ) ) {
+					$sort_fields[] = $sort_field['key'];
 				}
-			} else {
-				$output = '';
 			}
 		}
 
-		if ( ! isset( $output ) || empty( $output ) ) {
+		if ( sizeof( $view_entries ) > 0 ) {
 
-			/**
-			 * @todo Use Delicious Brain method to detect bottleneck and process at that point
-			 */
-			$atts['page_size'] = '250';
-			$atts['offset']    = isset( $atts['offset'] ) ? intval( $atts['offset'] ) : 0;
+			// For each entry
+			foreach ( $view_entries as $entry ) {
 
-			$view_entries = GravityView_frontend::get_view_entries( $atts, $view_data['form_id'] );
+				$temp = array();
 
-			// build output data
-			$data            = array();
-			$data['form_id'] = $view_data['form_id'];
+				//Remove anonymizing field keys to prepare for `for` loop
+				$fields               = array_values( $view_data['fields']['directory_table-columns'] );
+				$filters              = get_post_meta( $view_id, '_gravityview_filters', true );
+				$include_id           = false;
+				$include_approval     = false;
+				$include_date_created = false;
 
-			if ( isset( $view_entries['count'] ) && $view_entries['count'] !== '0' && $view_entries['count'] !== 0 ) {
-
-				// For each entry
-				foreach ( $view_entries['entries'] as $entry ) {
-
-					$temp = array();
-
-					//Remove anonymizing field keys to prepare for `for` loop
-					$fields = array_values( $view_data['fields']['directory_table-columns'] );
-
-					// Loop through each column and set the value of the column to the field value
-					if ( ! empty( $fields ) ) {
-						for ( $i = 0, $c = 0; $i < count( $fields ); $i ++ ) {
-
-							/**
-							 * Entry ID is required as the second DB column
-							 * @todo this is probably unnecessary as arrays are always sorted numerically or alphabetically
-							 */
-							if ( 'id' === $fields[ $i ]['id'] ) {
-								$include_id = true;
-								$temp       = $temp + array( 'id' => $entry['id'] );
-							} else {
-								$include_id = false;
-
-								//try not to store html
-								$fields[ $i ]['show_as_link'] = 0;
-								if ( isset( $fields[ $i ]['content'] ) ) {
-
-									$index_custom_data = apply_filters( 'gv_index_custom_content', $answer = false, $view_id );
-
-									if ( $index_custom_data ) {
-										$custom_data = GravityView_API::field_value( $entry, $fields[ $i ] );
-										$custom_data = array( "custom" => $custom_data['custom'] );
-									} else {
-										$custom_data = array( "custom" => esc_html( $fields[ $i ]['content'] ) );
-									}
-
-									$temp = array_merge( $temp, $custom_data );
-								} else {
-									$temp = array_merge( $temp, GravityView_API::field_value( $entry, $fields[ $i ] ) );
-								}
-								if ( key_exists( 'custom', $temp ) ) {
-									$temp = array_merge( $temp, array( 'custom_' . $c => $temp['custom'] ) );
-									unset( $temp['custom'] );
-									$c ++;
-								}
-							}
-
-							if ( count( $fields ) - 1 === $i && ! $include_id ) {
-								$temp = $temp + array( 'id' => $entry['id'] );
-							}
-
-						}
+				if ( $filters ) {
+					unset( $filters['mode'] );
+					foreach ( $filters as $filter ) {
+						$fields[] = array( 'id' => $filter['key'] );
 					}
-
-					// Then add the item to the output dataset
-					$data['data'][] = $temp;
-
 				}
 
-			} else {
-				return false;
+				// Loop through each column and set the value of the column to the field value
+				if ( ! empty( $fields ) ) {
+					for ( $i = 0, $c = 0; $i < count( $fields ); $i ++ ) {
+
+						/**
+						 * Entry ID is required as the second DB column
+						 * @todo this is probably unnecessary as arrays are always sorted numerically or alphabetically
+						 */
+						if ( 'id' === $fields[ $i ]['id'] ) {
+							$include_id = true;
+							$temp       = $temp + array( 'id' => $entry['id'] );
+						} elseif ( 'date_created' === $fields[ $i ]['id'] ) {
+							$include_date_created = true;
+							$temp                 = $temp + array( 'date_created' => $entry['date_created'] );
+						} elseif ( 'is_approved' === $fields[ $i ]['id'] ) {
+							$include_approval = true;
+							$temp             = $temp + array( 'is_approved' => gform_get_meta( $entry['id'], 'is_approved' ) );
+						} else {
+							//try not to store html
+							$fields[ $i ]['show_as_link'] = 0;
+							if ( isset( $fields[ $i ]['content'] ) ) {
+
+								if ( $index_custom_data && $multi_sort && false !== array_search( 'custom_' . $c, $sort_fields ) ) {
+									$custom_data = GravityView_API::field_value( $entry, $fields[ $i ] );
+									$custom_data = array( "custom" => $custom_data['custom'] );
+								} else {
+									$custom_data = array( "custom" => esc_html( $fields[ $i ]['content'] ) );
+								}
+
+								$temp = array_merge( $temp, $custom_data );
+							} else {
+								$temp = array_merge( $temp, GravityView_API::field_value( $entry, $fields[ $i ] ) );
+							}
+							if ( key_exists( 'custom', $temp ) ) {
+								$temp = array_merge( $temp, array( 'custom_' . $c => $temp['custom'] ) );
+								unset( $temp['custom'] );
+								$c ++;
+							}
+						}
+
+						if ( count( $fields ) - 1 === $i && isset( $include_id ) && ! $include_id ) {
+							$temp = $temp + array( 'id' => $entry['id'] );
+						}
+
+
+						if ( count( $fields ) - 1 === $i && isset( $include_date_created ) && ! $include_date_created ) {
+							$temp = $temp + array( 'date_created' => $entry['date_created'] );
+						}
+
+						if ( count( $fields ) - 1 === $i && isset( $include_approval ) && ! $include_approval ) {
+							$temp = $temp + array( 'is_approved' => gform_get_meta( $entry['id'], 'is_approved' ) );
+						}
+
+					}
+				}
+
+				// Then add the item to the output dataset
+				$data['data'][] = $temp;
+
 			}
 
-			do_action( 'gravityview_log_debug', '[DataTables] Ajax request answer', $data );
-
-			//$json = json_encode( $data );
-
-			// End prevent error output
-			ob_end_clean();
-
-			$output = $data;
-
+		} else {
+			return false;
 		}
+
+		do_action( 'gravityview_log_debug', '[DataTables] Ajax request answer', $data );
+
+		//$json = json_encode( $data );
+
+		// End prevent error output
+		ob_end_clean();
+
+		$output = $data;
 
 		return $output;
 	}
@@ -427,6 +430,10 @@ class GravityView_DataTables_Alt_DataSrc {
 
 		for ( $i = 0, $c = 0; $i < count( $fields ); $i ++ ) {
 
+			$include_id           = false;
+			$include_approval     = false;
+			$include_date_created = false;
+
 			/**
 			 * Entry ID is required as the second DB column
 			 * @todo this is probably unnecessary as arrays are always sorted numerically or alphabetically
@@ -434,9 +441,13 @@ class GravityView_DataTables_Alt_DataSrc {
 			if ( 'id' === $fields[ $i ]['id'] ) {
 				$include_id = true;
 				$view_entry = $view_entry + array( 'id' => $entry['id'] );
+			} elseif ( 'date_created' === $fields[ $i ]['id'] ) {
+				$include_date_created = true;
+				$view_entry           = $view_entry + array( 'date_created' => $entry['date_created'] );
+			} elseif ( 'is_approved' === $fields[ $i ]['id'] ) {
+				$include_approval = true;
+				$view_entry       = $view_entry + array( 'is_approved' => gform_get_meta( $entry['id'], 'is_approved' ) );
 			} else {
-				$include_id = false;
-
 				//try not to store html
 				$fields[ $i ]['show_as_link'] = 0;
 				if ( isset( $fields[ $i ]['content'] ) ) {
@@ -473,6 +484,14 @@ class GravityView_DataTables_Alt_DataSrc {
 
 			if ( count( $fields ) - 1 === $i && ! $include_id ) {
 				$view_entry = $view_entry + array( 'id' => $entry['id'] );
+			}
+
+			if ( count( $fields ) - 1 === $i && ! $include_date_created ) {
+				$view_entry = $view_entry + array( 'date_created' => $entry['date_created'] );
+			}
+
+			if ( count( $fields ) - 1 === $i && ! $include_approval ) {
+				$view_entry = $view_entry + array( 'is_approved' => gform_get_meta( $entry['id'], 'is_approved' ) );
 			}
 
 		}

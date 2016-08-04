@@ -122,7 +122,8 @@ function create_tables() {
 
 	global $wpdb;
 
-	$index_db = new GravityView_DataTables_Index_DB;
+	$queue_table = $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $wpdb->prefix . 'queue') );
+	$failed_jobs_table = $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $wpdb->prefix . 'failed_jobs') );
 
 	require_once( ABSPATH . 'wp-admin/includes/upgrade.php' );
 
@@ -131,7 +132,7 @@ function create_tables() {
 
 	$charset_collate = $wpdb->get_charset_collate();
 
-	if ( ! $index_db->table_exists( $wpdb->prefix . 'queue' ) ):
+	if ( ! $queue_table ):
 
 		$sql = "CREATE TABLE {$wpdb->prefix}queue (
 				id bigint(20) NOT NULL AUTO_INCREMENT,
@@ -147,7 +148,7 @@ function create_tables() {
 		dbDelta( $sql );
 
 	endif;
-	if ( ! $index_db->table_exists( $wpdb->prefix . 'failed_jobs' ) ):
+	if ( ! $failed_jobs_table ):
 
 		$sql = "CREATE TABLE {$wpdb->prefix}failed_jobs (
 				id bigint(20) NOT NULL AUTO_INCREMENT,
@@ -158,6 +159,16 @@ function create_tables() {
 
 		dbDelta( $sql );
 	endif;
+
+	if ( $failed_jobs_table ){
+		require_once GVDT_ALT_SRC_DIR . 'includes/class-gravityview-datatables-alt-data-src.php';
+		require_once GVDT_ALT_SRC_DIR . 'includes/class-gravityview-index-db.php';
+		require_once GVDT_ALT_SRC_DIR . 'includes/class-gravityview-datatables-index-db.php';
+		require_once GVDT_ALT_SRC_DIR . 'includes/class-gravityview-background-processing.php';
+
+		$GravityView_DataTables_Alt_DataSrc = GravityView_DataTables_Alt_DataSrc::get_instance();
+		$GravityView_DataTables_Alt_DataSrc->create_tables();
+	}
 }
 
 register_activation_hook( __FILE__, 'create_tables' );

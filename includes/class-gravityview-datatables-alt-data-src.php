@@ -54,6 +54,8 @@ class GravityView_DataTables_Alt_DataSrc {
 		add_action( 'wp_ajax_gv_alt_datatables_data', array( $this, 'get_alt_datatables_data' ), 10 );
 		add_action( 'wp_ajax_nopriv_gv_alt_datatables_data', array( $this, 'get_alt_datatables_data' ), 10 );
 
+		add_action( 'pre_post_update', array( $this, 'store_multisort_settings' ), 10, 2 );
+
 		add_action( 'gravityview_view_saved', array( $this, 'create_table' ), 10, 2 );
 		add_action( 'gv_duplicate_view', array( $this, 'create_table' ), 10, 2 );
 		add_action( 'trash_gravityview', array( $this, 'drop_table' ), 10, 2 );
@@ -999,6 +1001,16 @@ class GravityView_DataTables_Alt_DataSrc {
 			);
 
 		return $default_args;
+	}
+
+	public function store_multisort_settings($post_id, $data){
+		$old_view_settings = get_post_meta($post_id, '_gravityview_template_settings', true );
+		$new_view_data = $_POST['template_settings'];
+
+		if ($old_view_settings['multiple_sort_field'] !== $new_view_data['multiple_sort_field']){
+			set_transient("gv_index_" . $post_id . "multisort", $old_view_settings['multiple_sort_field']);
+		}
+
 	}
 
 

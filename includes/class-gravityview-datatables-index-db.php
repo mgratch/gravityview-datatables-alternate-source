@@ -448,6 +448,17 @@ SQL;
 			}
 
 			update_option( $this->table_name . '_db_version', $this->version );
+		} else {
+
+			$view_data = $this->view_data;
+			$atts      = $view_data['atts'];
+			$transient = get_transient("gv_index_" . $this->view_id . "multisort");
+
+			if ( $transient ) {
+				$this->handle_all( $this->view_id, $new_columns );
+				delete_transient("gv_index_" . $this->view_id . "multisort");
+			}
+
 		}
 
 		/**
@@ -659,7 +670,7 @@ SQL;
 
 		if ( null === $charset_collate ) {
 			$charset_collate = $wpdb->get_charset_collate();
-		} elseif ($charset_collate === false){
+		} elseif ( $charset_collate === false ) {
 			$charset_collate = "";
 		}
 

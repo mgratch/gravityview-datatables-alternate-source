@@ -82,24 +82,22 @@ class GravityView_DataTables_Alt_DataSrc {
 		}
 
 		$min = defined( 'SCRIPT_DEBUG' ) && SCRIPT_DEBUG || isset( $_GET['gform_debug'] ) ? '' : '.min';
-		wp_register_script( 'gaddon_repeater', GFAddOn::get_gfaddon_base_url() . "/js/repeater{$min}.js", array( 'jquery' ), "1.0" );
-		wp_enqueue_script( 'gaddon_repeater' );
-		$this->register_noconflict_script( 'gaddon_repeater' );
-
-		wp_register_script( 'gvdt_fieldmap_js', GVDT_ALT_SRC_URL . "/includes/assets/js/gaddon_fieldmap{$min}.js", array(
-			'jquery',
-			'gaddon_repeater'
-		), "1.0" );
-		wp_enqueue_script( 'gvdt_fieldmap_js' );
-		$this->register_noconflict_script( 'gvdt_fieldmap_js' );
 
 		$index_custom_data = apply_filters( 'gv_index_custom_content', $answer = false, $post->ID );
 		$index_custom_data = array( "index_custom_content" => (int) $index_custom_data );
 
-		wp_register_script( 'sort-filter-selectbox', GVDT_ALT_SRC_URL . "/includes/assets/js/sort-filter-selectbox{$min}.js", array( 'gvdt_fieldmap_js' ), "1.0", true );
+		wp_register_script( 'sort-filter-selectbox', GVDT_ALT_SRC_URL . "includes/assets/js/sort-filter-selectbox{$min}.js", array( 'jquery' ), "1.0", true );
 		wp_localize_script( 'sort-filter-selectbox', 'gvDTIndex', $index_custom_data );
 		wp_enqueue_script( 'sort-filter-selectbox' );
+		$this->register_noconflict_script( 'sort-filter-selectbox' );
+
+		wp_register_script( 'gaddon_repeater', GFAddOn::get_gfaddon_base_url() . "/js/repeater{$min}.js", array( 'sort-filter-selectbox' ), "1.0" );
+		wp_enqueue_script( 'gaddon_repeater' );
 		$this->register_noconflict_script( 'gaddon_repeater' );
+
+		wp_register_script( 'gvdt_fieldmap_js', GVDT_ALT_SRC_URL . "includes/assets/js/gaddon_fieldmap{$min}.js", array( 'gaddon_repeater' ), "1.0" );
+		wp_enqueue_script( 'gvdt_fieldmap_js' );
+		$this->register_noconflict_script( 'gvdt_fieldmap_js' );
 
 	}
 
@@ -107,6 +105,13 @@ class GravityView_DataTables_Alt_DataSrc {
 		add_filter( 'gform_noconflict_scripts', create_function( '$scripts', '$scripts[] = "' . $script_name . '"; return $scripts;' ) );
 	}
 
+	/**
+	 * @param $dt_config
+	 * @param $view_id
+	 * @param $post
+	 *
+	 * @return mixed
+	 */
 	public function change_gravityview_datatables_source( $dt_config, $view_id, $post ) {
 
 		//store original options

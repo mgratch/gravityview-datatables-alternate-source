@@ -1,3 +1,4 @@
+var mg;
 jQuery(document).ready(function ($) {
 
     $ = jQuery;
@@ -8,6 +9,8 @@ jQuery(document).ready(function ($) {
             directoryCol_zone: $col_zone,
             sort_box_name: 'sort_field_key'
         };
+
+    mg = self;
 
     self.init = function () {
         self.getColumns(self.directoryCol_zone);
@@ -98,9 +101,7 @@ jQuery(document).ready(function ($) {
 
         if ('custom' === field_id) {
             //Does the DT View allow custom content to be indexed?
-            
-            console.log(gvDTIndex.index_custom_content);
-            
+
             if ( "undefined" !== typeof gvDTIndex.index_custom_content && 0 == gvDTIndex.index_custom_content ){
                 return self.active_columns;
             } else {

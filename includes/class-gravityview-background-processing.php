@@ -56,7 +56,7 @@ class WP_GVDT_Index_Job extends WP_Job {
 	 * in the next pass through. Or, return false to remove the
 	 * item from the queue.
 	 *
-	 * THIS IS CURRENTLY USING THE MAGIC NUMBER OF 250
+	 * THIS IS CURRENTLY USING THE MAGIC NUMBER OF 150
 	 *
 	 * @todo identify largest packet size usable for the current environment
 	 * @see \WPMDB_Base::get_bottleneck
@@ -91,14 +91,14 @@ class WP_GVDT_Index_Job extends WP_Job {
 				return false;
 			}
 
-			$page_count = ceil( intval( $entry_count ) / 250 );
+			$page_count = ceil( intval( $entry_count ) / 150 );
 			$args       = array();
 
 			$offset = get_transient( "gv_index_" . $this->view_id );
 			$offset = false !== $offset ? $offset : 0;
 
 			for ( $i = 0; $i < $page_count; $i ++ ) {
-				$args['offset'] = max( $i * 250, $offset );
+				$args['offset'] = max( $i * 150, $offset );
 				wp_queue( new WP_GVDT_Index_Job( null, $this->view_id, $args, 'sync-group', $this->new_columns ) );
 				set_transient( "gv_index_" . $this->view_id, $args['offset'] );
 			}

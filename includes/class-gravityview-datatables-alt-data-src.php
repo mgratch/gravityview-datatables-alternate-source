@@ -39,7 +39,7 @@ class GravityView_DataTables_Alt_DataSrc {
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_admin_scripts' ), 11 );
 		add_action( 'gravityview_default_args', array( $this, 'add_hidden_field' ), 10 );
 
-		add_filter( 'gravityview_use_cache', '__return_false' );
+		//add_filter( 'gravityview_use_cache', '__return_false' );
 
 		add_filter( 'gravityview/metaboxes/default', array( $this, 'remove_metabox_tab' ) );
 
@@ -230,7 +230,7 @@ class GravityView_DataTables_Alt_DataSrc {
 		/**
 		 * @todo Use Delicious Brain method to detect bottleneck and process at that point
 		 */
-		$atts['page_size'] = '250';
+		$atts['page_size'] = '150';
 		$atts['offset']    = isset( $atts['offset'] ) ? intval( $atts['offset'] ) : 0;
 
 		$paging = array(
@@ -302,7 +302,7 @@ class GravityView_DataTables_Alt_DataSrc {
 							$fields[ $i ]['show_as_link'] = 0;
 							if ( isset( $fields[ $i ]['content'] ) ) {
 
-								if ( $index_custom_data && $multi_sort && false !== array_search( 'custom_' . $c, $sort_fields ) ) {
+								if ( $index_custom_data ) {
 									$custom_data = GravityView_API::field_value( $entry, $fields[ $i ] );
 									$custom_data = array( "custom" => $custom_data['custom'] );
 								} else {

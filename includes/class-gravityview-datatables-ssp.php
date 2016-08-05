@@ -7,6 +7,9 @@
  * Time: 11:35 AM
  */
 class GravityView_DataTables_SSP {
+
+	private static $view_id;
+
 	/**
 	 * Create the data output array for the DataTables rows
 	 *
@@ -20,11 +23,8 @@ class GravityView_DataTables_SSP {
 	 * @todo Process GV Data i.e. links and custom content as well
 	 */
 	static function data_output( $columns, $data ) {
-		global $post;
 
-		$view_id = gravityview_get_view_id();
-
-		$view_id = ! empty( $view_id ) ? $view_id : $post->ID;
+		$view_id = self::$view_id;
 
 		//get the view_data without relying on GV internal methods
 		$gravityview_directory_fields = get_post_meta( $view_id, '_gravityview_directory_fields', true );
@@ -39,6 +39,7 @@ class GravityView_DataTables_SSP {
 
 		//remove anonymizing field keys
 		$gravityview_directory_fields = array_values( $gravityview_directory_fields );
+		$index_custom_data = apply_filters( 'gv_index_custom_content', $answer = false, $view_id );
 
 		$out = array();
 
@@ -66,7 +67,7 @@ class GravityView_DataTables_SSP {
 					       'delete_link' == $gravityview_directory_fields[ $j ]['id'] ) ||
 					     ( isset( $gravityview_directory_fields[ $j ]['show_as_link'] ) &&
 					       '0' !== $gravityview_directory_fields[ $j ]['show_as_link'] ) ||
-					     ( false !== strpos( $column['db'], 'custom_' ) )
+					     ( false !== strpos( $column['db'], 'custom_' ) && ! $index_custom_data )
 					) {
 						//Get the processed field value
 						$entry       = GFAPI::get_entry( $data[ $i ]['id'] );
@@ -276,6 +277,8 @@ class GravityView_DataTables_SSP {
 	 * @return array          Server-side processing response array
 	 */
 	static function simple( $request, $conn, $table, $primaryKey, $columns ) {
+		self::$view_id = $request['view_id'];
+
 		$bindings = array();
 		$db       = self::db( $conn );
 

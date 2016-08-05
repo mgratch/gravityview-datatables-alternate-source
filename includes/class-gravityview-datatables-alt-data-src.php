@@ -864,8 +864,9 @@ class GravityView_DataTables_Alt_DataSrc {
 		 * check for advanced filters
 		 * @todo check plugin exists and is active
 		 */
-		if ( $filter = get_post_meta( $view_id, '_gravityview_filters', true ) ) {
-			unset( $filter['mode'] );
+		$filter = get_post_meta( $view_id, '_gravityview_filters', true );
+		unset( $filter['mode'] );
+		if ( ! empty( $filter ) ) {
 			$filters = "";
 			for ( $i = 0, $count = count( $filter ); $i < $count; $i ++ ) {
 				$rule         = $filter[ $i ];
@@ -1003,14 +1004,45 @@ class GravityView_DataTables_Alt_DataSrc {
 		return $default_args;
 	}
 
-	public function store_multisort_settings($post_id, $data){
-		$old_view_settings = get_post_meta($post_id, '_gravityview_template_settings', true );
-		$new_view_data = $_POST['template_settings'];
+	public function store_multisort_settings( $post_id, $data ) {
+		$old_view_settings = get_post_meta( $post_id, '_gravityview_template_settings', true );
+		$new_view_data     = isset( $_POST['template_settings'] ) ? $_POST['template_settings'] : "";
 
-		if ($old_view_settings['multiple_sort_field'] !== $new_view_data['multiple_sort_field']){
-			set_transient("gv_index_" . $post_id . "multisort", $old_view_settings['multiple_sort_field']);
+		if ( isset( $old_view_settings['multiple_sort_field'] ) && $old_view_settings['multiple_sort_field'] !== $new_view_data['multiple_sort_field'] ) {
+			set_transient( "gv_index_" . $post_id . "multisort", $old_view_settings['multiple_sort_field'] );
 		}
 
+	}
+
+
+	/**
+	 * Add the generic search to the global get_entries query
+	 *
+	 * @since 1.3.3
+	 *
+	 * @param array $search_criteria Search Criteria
+	 *
+	 * @return mixed
+	 */
+	function add_global_search( $search_criteria ) {
+
+		if ( empty( $_POST['search']['value'] ) ) {
+			return $search_criteria;
+		}
+
+		$words = explode( ' ', stripslashes_deep( $_POST['search']['value'] ) );
+
+		$words = array_filter( $words );
+
+		foreach ( $words as $word ) {
+			$search_criteria['field_filters'][] = array(
+				'key'      => null, // The field ID to search
+				'value'    => $word, // The value to search
+				'operator' => 'contains', // What to search in. Options: `is` or `contains`
+			);
+		}
+
+		return $search_criteria;
 	}
 
 

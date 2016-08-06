@@ -86,29 +86,6 @@ function gvdt_alt_src_load() {
 			require_once GVDT_ALT_SRC_DIR . 'includes/class-gravityview-datatables-index-db.php';
 			require_once GVDT_ALT_SRC_DIR . 'includes/class-gravityview-background-processing.php';
 
-			global $wp_queue;
-			$wp_queue->release_time = 0;
-
-			$WP_GVDT_Index_Job = new WP_GVDT_Index_Job();
-			$WP_GVDT_Index_Job->release();
-			$wp_queue->restart_failed_jobs();
-			$job_count = $wp_queue->available_jobs();
-
-			for ( $i = 0; $i < $job_count; $i ++ ) {
-
-				$job = $wp_queue->get_next_job();
-
-				if ( isset($job->job) && false !== strpos( $job->job, "WP_GVDT_Index_Job" ) ) {
-					$wp_queue->delete( $job );
-					if ( $i === $job_count - 1 ) {
-						if ( 0 !== $wp_queue->available_jobs() ) {
-							$job_count = $wp_queue->available_jobs();
-						}
-						$i = - 1;
-					}
-				}
-
-			}
 			$this->dataSrc = GravityView_DataTables_Alt_DataSrc::get_instance();
 		}
 

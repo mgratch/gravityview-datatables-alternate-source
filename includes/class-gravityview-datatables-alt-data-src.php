@@ -39,7 +39,7 @@ class GravityView_DataTables_Alt_DataSrc {
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_admin_scripts' ), 11 );
 		add_action( 'gravityview_default_args', array( $this, 'add_hidden_field' ), 10 );
 
-		add_filter( 'gravityview_use_cache', '__return_false' );
+		//add_filter( 'gravityview_use_cache', '__return_false' );
 
 		add_filter( 'gravityview/metaboxes/default', array( $this, 'remove_metabox_tab' ) );
 
@@ -132,7 +132,7 @@ class GravityView_DataTables_Alt_DataSrc {
 
 		$dont_index_me = apply_filters( 'gravityview/dt/index/skip', $view_id );
 
-		if ( ! $dont_index_me ){
+		if ( $dont_index_me ){
 			return $return_config;
 		}
 

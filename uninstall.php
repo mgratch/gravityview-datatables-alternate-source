@@ -146,9 +146,10 @@ class GravityView_DataTables_Alt_Uninstall {
 		require_once GVDT_ALT_SRC_DIR . 'includes/class-gravityview-background-processing.php';
 
 		global $wp_queue;
-		$WP_GVDT_Index_Job = new WP_GVDT_Index_Job();
+		$wp_queue->release_time = 0;
 
-		$WP_GVDT_Index_Job->release(0);
+		$WP_GVDT_Index_Job = new WP_GVDT_Index_Job();
+		$WP_GVDT_Index_Job->release();
 		$wp_queue->restart_failed_jobs();
 		$job_count = $wp_queue->available_jobs();
 

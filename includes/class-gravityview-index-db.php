@@ -1,7 +1,9 @@
 <?php
 
 // Exit if accessed directly
-if ( ! defined( 'ABSPATH' ) ) exit;
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
 
 /**
  * GravityView Index DB base class
@@ -9,7 +11,6 @@ if ( ! defined( 'ABSPATH' ) ) exit;
  * @license     http://opensource.org/licenses/gpl-2.0.php GNU Public License
  * @since       1.0
  */
-
 abstract class GravityView_Index_DB {
 	/**
 	 * The name of our database table
@@ -41,7 +42,8 @@ abstract class GravityView_Index_DB {
 	 * @access  public
 	 * @since  1.0
 	 */
-	public function __construct() {}
+	public function __construct() {
+	}
 
 	/**
 	 * Whitelist of columns
@@ -77,6 +79,7 @@ abstract class GravityView_Index_DB {
 	 */
 	public function get( $row_id ) {
 		global $wpdb;
+
 		return $wpdb->get_row( $wpdb->prepare( "SELECT * FROM $this->table_name WHERE $this->primary_key = %s LIMIT 1;", $row_id ) );
 	}
 
@@ -94,6 +97,7 @@ abstract class GravityView_Index_DB {
 	public function get_by( $column, $row_id ) {
 		global $wpdb;
 		$column = esc_sql( $column );
+
 		return $wpdb->get_row( $wpdb->prepare( "SELECT * FROM $this->table_name WHERE $column = %s LIMIT 1;", $row_id ) );
 	}
 
@@ -111,6 +115,7 @@ abstract class GravityView_Index_DB {
 	public function get_column( $column, $row_id ) {
 		global $wpdb;
 		$column = esc_sql( $column );
+
 		return $wpdb->get_var( $wpdb->prepare( "SELECT $column FROM $this->table_name WHERE $this->primary_key = %s LIMIT 1;", $row_id ) );
 	}
 
@@ -130,6 +135,7 @@ abstract class GravityView_Index_DB {
 		global $wpdb;
 		$column_where = esc_sql( $column_where );
 		$column       = esc_sql( $column );
+
 		return $wpdb->get_var( $wpdb->prepare( "SELECT $column FROM $this->table_name WHERE $column_where = %s LIMIT 1;", $column_value ) );
 	}
 
@@ -162,7 +168,7 @@ abstract class GravityView_Index_DB {
 		$data = array_intersect_key( $data, $column_formats );
 
 		// Reorder $column_formats to match the order of columns given in $data
-		$data_keys = array_keys( $data );
+		$data_keys      = array_keys( $data );
 		$column_formats = array_merge( array_flip( $data_keys ), $column_formats );
 
 		$wpdb->insert( $this->table_name, $data, $column_formats );
@@ -191,11 +197,11 @@ abstract class GravityView_Index_DB {
 		// Row ID must be positive integer
 		$row_id = absint( $row_id );
 
-		if( empty( $row_id ) ) {
+		if ( empty( $row_id ) ) {
 			return false;
 		}
 
-		if( empty( $where ) ) {
+		if ( empty( $where ) ) {
 			$where = $this->primary_key;
 		}
 
@@ -209,7 +215,7 @@ abstract class GravityView_Index_DB {
 		$data = array_intersect_key( $data, $column_formats );
 
 		// Reorder $column_formats to match the order of columns given in $data
-		$data_keys = array_keys( $data );
+		$data_keys      = array_keys( $data );
 		$column_formats = array_merge( array_flip( $data_keys ), $column_formats );
 
 		if ( false === $wpdb->update( $this->table_name, $data, array( $where => $row_id ), $column_formats ) ) {
@@ -236,7 +242,7 @@ abstract class GravityView_Index_DB {
 		// Row ID must be positive integer
 		$row_id = absint( $row_id );
 
-		if( empty( $row_id ) ) {
+		if ( empty( $row_id ) ) {
 			return false;
 		}
 
@@ -251,7 +257,9 @@ abstract class GravityView_Index_DB {
 	 * Check if the given table exists
 	 *
 	 * @since  1.0
+	 *
 	 * @param  string $table The table name
+	 *
 	 * @return bool          If the table name exists
 	 */
 	public function table_exists( $table ) {

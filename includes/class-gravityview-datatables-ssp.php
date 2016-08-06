@@ -39,7 +39,7 @@ class GravityView_DataTables_SSP {
 
 		//remove anonymizing field keys
 		$gravityview_directory_fields = array_values( $gravityview_directory_fields );
-		$index_custom_data = apply_filters( 'gv_index_custom_content', $answer = false, $view_id );
+		$index_custom_data            = apply_filters( 'gv_index_custom_content', $answer = false, $view_id );
 
 		$out = array();
 
@@ -70,8 +70,8 @@ class GravityView_DataTables_SSP {
 					     ( false !== strpos( $column['db'], 'custom_' ) && ! $index_custom_data )
 					) {
 						//Get the processed field value
-						$entry       = GFAPI::get_entry( $data[ $i ]['id'] );
-						
+						$entry = GFAPI::get_entry( $data[ $i ]['id'] );
+
 						//If an ID exists in the index but not the lead table skip it and clean up during health checks
 						$entry       = is_array( $entry ) ? $entry : null;
 						$field_value = GravityView_API::field_value( $entry, $field_setting );
@@ -90,7 +90,7 @@ class GravityView_DataTables_SSP {
 				if ( isset( $column['formatter'] ) ) {
 					$row[ $column['dt'] ] = $column['formatter']( $data[ $i ][ $column['db'] ], $data[ $i ] );
 				} else {
-					$row[ $column['dt'] ] = $data[ $i ][ $columns[ $j ]['db'] ];
+					$row[ $column['dt'] ] =  $data[ $i ][ $columns[ $j ]['db'] ];
 				}
 			}
 
@@ -277,6 +277,7 @@ class GravityView_DataTables_SSP {
 	 * @return array          Server-side processing response array
 	 */
 	static function simple( $request, $conn, $table, $primaryKey, $columns ) {
+
 		self::$view_id = $request['view_id'];
 
 		$bindings = array();
@@ -357,6 +358,8 @@ class GravityView_DataTables_SSP {
 		$localWhereAll    = array();
 		$whereAllSql      = '';
 
+		self::$view_id = $request['view_id'];
+
 		// Build the SQL query string from the request
 		$limit = self::limit( $request, $columns );
 		$order = self::order( $request, $columns );
@@ -436,7 +439,7 @@ class GravityView_DataTables_SSP {
 	static function sql_connect( $sql_details ) {
 		try {
 			$db = @new PDO(
-				"mysql:host={$sql_details['host']};dbname={$sql_details['db']}",
+				"mysql:host={$sql_details['host']};dbname={$sql_details['db']};charset=utf8mb4",
 				$sql_details['user'],
 				$sql_details['pass'],
 				array( PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION )
@@ -464,7 +467,6 @@ class GravityView_DataTables_SSP {
 	 * @return array         Result from the query (all rows)
 	 */
 	static function sql_exec( $db, $bindings, $sql = null ) {
-		global $wpdb;
 
 		// Argument shifting
 		if ( $sql === null ) {

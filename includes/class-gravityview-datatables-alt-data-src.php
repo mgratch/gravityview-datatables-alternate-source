@@ -39,12 +39,13 @@ class GravityView_DataTables_Alt_DataSrc {
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_admin_scripts' ), 11 );
 		add_action( 'gravityview_default_args', array( $this, 'add_hidden_field' ), 10 );
 
-		//add_filter( 'gravityview_use_cache', '__return_false' );
+		add_filter( 'gravityview_use_cache', '__return_false' );
 
 		add_filter( 'gravityview/metaboxes/default', array( $this, 'remove_metabox_tab' ) );
 
 		add_filter( 'gravityview_field_entry_value', array( $this, 'format_entry_value_array' ), 10, 4 );
 		add_filter( 'gv_index_custom_content', array( $this, 'index_custom_content_values' ), 11, 2 );
+		//add_filter( 'gravityview/dt/index/skip', array( $this, 'skip_index' ), 10 );
 
 		add_filter( 'gravityview_datatables_js_options', array(
 			$this,
@@ -98,18 +99,18 @@ class GravityView_DataTables_Alt_DataSrc {
 		$index_custom_data = apply_filters( 'gv_index_custom_content', $answer = false, $post->ID );
 		$index_custom_data = array( "index_custom_content" => (int) $index_custom_data );
 
-		wp_register_script( 'sort-filter-selectbox', GVDT_ALT_SRC_URL . "includes/assets/js/sort-filter-selectbox{$min}.js", array( 'jquery' ), "1.0", true );
-		wp_localize_script( 'sort-filter-selectbox', 'gvDTIndex', $index_custom_data );
-		wp_enqueue_script( 'sort-filter-selectbox' );
-		$this->register_noconflict_script( 'sort-filter-selectbox' );
-
-		wp_register_script( 'gaddon_repeater', GFAddOn::get_gfaddon_base_url() . "/js/repeater{$min}.js", array( 'sort-filter-selectbox' ), "1.0" );
+		wp_register_script( 'gaddon_repeater', GFAddOn::get_gfaddon_base_url() . "/js/repeater{$min}.js", array( 'jquery' ), "1.0" );
 		wp_enqueue_script( 'gaddon_repeater' );
 		$this->register_noconflict_script( 'gaddon_repeater' );
 
 		wp_register_script( 'gvdt_fieldmap_js', GVDT_ALT_SRC_URL . "includes/assets/js/gaddon_fieldmap{$min}.js", array( 'gaddon_repeater' ), "1.0" );
 		wp_enqueue_script( 'gvdt_fieldmap_js' );
 		$this->register_noconflict_script( 'gvdt_fieldmap_js' );
+
+		wp_register_script( 'sort-filter-selectbox', GVDT_ALT_SRC_URL . "includes/assets/js/sort-filter-selectbox{$min}.js", array( 'gaddon_repeater' ), "1.0", true );
+		wp_localize_script( 'sort-filter-selectbox', 'gvDTIndex', $index_custom_data );
+		wp_enqueue_script( 'sort-filter-selectbox' );
+		$this->register_noconflict_script( 'sort-filter-selectbox' );
 
 	}
 
@@ -128,6 +129,12 @@ class GravityView_DataTables_Alt_DataSrc {
 
 		//store original options
 		$return_config = $dt_config;
+
+		$dont_index_me = apply_filters( 'gravityview/dt/index/skip', $view_id );
+
+		if ( ! $dont_index_me ){
+			return $return_config;
+		}
 
 		$view_data                      = get_post_meta( $view_id, '_gravityview_template_settings', true );
 		$gravityview_directory_template = get_post_meta( $view_id, '_gravityview_directory_template', true );
@@ -230,7 +237,7 @@ class GravityView_DataTables_Alt_DataSrc {
 		/**
 		 * @todo Use Delicious Brain method to detect bottleneck and process at that point
 		 */
-		$atts['page_size'] = '150';
+		$atts['page_size'] = '250';
 		$atts['offset']    = isset( $atts['offset'] ) ? intval( $atts['offset'] ) : 0;
 
 		$paging = array(
@@ -294,6 +301,10 @@ class GravityView_DataTables_Alt_DataSrc {
 						} elseif ( 'date_created' === $fields[ $i ]['id'] ) {
 							$include_date_created = true;
 							$temp                 = $temp + array( 'date_created' => $entry['date_created'] );
+						} elseif ( 'edit_link' === $fields[ $i ]['id'] ) {
+							$temp = $temp + array( 'edit_link' => "" );
+						} elseif ( 'delete_link' === $fields[ $i ]['id'] ) {
+							$temp = $temp + array( 'delete_link' => "" );
 						} elseif ( 'is_approved' === $fields[ $i ]['id'] ) {
 							$include_approval = true;
 							$temp             = $temp + array( 'is_approved' => gform_get_meta( $entry['id'], 'is_approved' ) );
@@ -306,7 +317,7 @@ class GravityView_DataTables_Alt_DataSrc {
 									$custom_data = GravityView_API::field_value( $entry, $fields[ $i ] );
 									$custom_data = array( "custom" => $custom_data['custom'] );
 								} else {
-									$custom_data = array( "custom" => esc_html( $fields[ $i ]['content'] ) );
+									$custom_data = array( "custom" => $fields[ $i ]['content'] );
 								}
 
 								$temp = array_merge( $temp, $custom_data );
@@ -873,7 +884,11 @@ class GravityView_DataTables_Alt_DataSrc {
 				$column_name  = is_numeric( $rule['key'] ) ? "field_" . $rule['key'] : $rule['key'];
 				$operator     = $rule['operator'];
 				$value        = $rule['value'];
+
+				$value = GFCommon::has_merge_tag($value) ? GFCommon::replace_variables_prepopulate( $value ) : $value;
 				$or_statement = '';
+
+
 
 				switch ( $operator ):
 					case 'is':
@@ -894,6 +909,8 @@ class GravityView_DataTables_Alt_DataSrc {
 						$value    = "%$value%";
 						break;
 				endswitch;
+
+
 
 				if ( 0 === $i ) {
 					$filters .= "(" . $column_name . $operator . "'$value'" . $or_statement . ")";
@@ -1004,6 +1021,10 @@ class GravityView_DataTables_Alt_DataSrc {
 		return $default_args;
 	}
 
+	/**
+	 * @param $post_id
+	 * @param $data
+	 */
 	public function store_multisort_settings( $post_id, $data ) {
 		$old_view_settings = get_post_meta( $post_id, '_gravityview_template_settings', true );
 		$new_view_data     = isset( $_POST['template_settings'] ) ? $_POST['template_settings'] : "";
@@ -1043,6 +1064,16 @@ class GravityView_DataTables_Alt_DataSrc {
 		}
 
 		return $search_criteria;
+	}
+
+	/**
+	 * if it returns
+	 * @param null $view_id
+	 *
+	 * @return bool
+	 */
+	public function skip_index( $view_id = null ) {
+		return false;
 	}
 
 

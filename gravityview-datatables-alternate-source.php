@@ -73,11 +73,11 @@ function gvdt_alt_src_load() {
 			define( 'GVDT_ALT_SRC_FILE', __FILE__ );
 
 			/** @define "GVDT_ALT_SRC_DIR" "./" The absolute path to the plugin directory */
-			if ( ! defined('GVDT_ALT_SRC_DIR') ){
+			if ( ! defined( 'GVDT_ALT_SRC_DIR' ) ) {
 				define( 'GVDT_ALT_SRC_DIR', plugin_dir_path( __FILE__ ) );
 			}
 
-			if ( ! defined('GVDT_ALT_SRC_URL') ){
+			if ( ! defined( 'GVDT_ALT_SRC_URL' ) ) {
 				define( 'GVDT_ALT_SRC_URL', plugin_dir_url( __FILE__ ) );
 			}
 
@@ -113,7 +113,7 @@ function gvdt_alt_src_load() {
 function create_tables() {
 
 	/** @define "GVDT_ALT_SRC_DIR" "./" The absolute path to the plugin directory */
-	if ( ! defined('GVDT_ALT_SRC_DIR') ){
+	if ( ! defined( 'GVDT_ALT_SRC_DIR' ) ) {
 		define( 'GVDT_ALT_SRC_DIR', plugin_dir_path( __FILE__ ) );
 	}
 
@@ -122,8 +122,8 @@ function create_tables() {
 
 	global $wpdb;
 
-	$queue_table = $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $wpdb->prefix . 'queue') );
-	$failed_jobs_table = $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $wpdb->prefix . 'failed_jobs') );
+	$queue_table       = $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $wpdb->prefix . 'queue' ) );
+	$failed_jobs_table = $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $wpdb->prefix . 'failed_jobs' ) );
 
 	require_once( ABSPATH . 'wp-admin/includes/upgrade.php' );
 
@@ -160,7 +160,7 @@ function create_tables() {
 		dbDelta( $sql );
 	endif;
 
-	if ( $failed_jobs_table ){
+	if ( $failed_jobs_table ) {
 		require_once GVDT_ALT_SRC_DIR . 'includes/class-gravityview-datatables-alt-data-src.php';
 		require_once GVDT_ALT_SRC_DIR . 'includes/class-gravityview-index-db.php';
 		require_once GVDT_ALT_SRC_DIR . 'includes/class-gravityview-datatables-index-db.php';

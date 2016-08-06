@@ -452,11 +452,11 @@ SQL;
 
 			$view_data = $this->view_data;
 			$atts      = $view_data['atts'];
-			$transient = get_transient("gv_index_" . $this->view_id . "multisort");
+			$transient = get_transient( "gv_index_" . $this->view_id . "multisort" );
 
 			if ( $transient ) {
 				$this->handle_all( $this->view_id, $new_columns );
-				delete_transient("gv_index_" . $this->view_id . "multisort");
+				delete_transient( "gv_index_" . $this->view_id . "multisort" );
 			}
 
 		}

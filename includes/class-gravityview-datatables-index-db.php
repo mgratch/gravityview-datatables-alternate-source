@@ -408,10 +408,12 @@ SQL;
 
 		$table_columns = $this->generate_table_column_string( $columns );
 
-		$table_keys = "PRIMARY KEY  (id),\n\t";
-		$table_keys .= "KEY is_approved (is_approved),\n\t";
-		$table_keys .= "KEY date_created (date_created),\n\t";
-		$table_keys .= "KEY index_id (index_id)";
+		$table_columns = implode(", ", $table_columns);
+
+		$table_keys = ", PRIMARY KEY  (id),";
+		$table_keys .= " KEY is_approved (is_approved),";
+		$table_keys .= " KEY date_created (date_created),";
+		$table_keys .= " KEY index_id (index_id)";
 
 		$sql              = $this->format_table( $this->table_name, $table_columns, $table_keys );
 		$existing_columns = $this->table_exists( $table_name ) ? $wpdb->get_col( "DESC {$table_name}", 0 ) : array();
@@ -784,9 +786,8 @@ SQL;
 
 	private function generate_table_column_string( $columns ) {
 		//index_id should always be the first column
-		$table_columns = "index_id bigint(20) NOT NULL AUTO_INCREMENT,";
-
-		$table_columns .= "\n\t";
+		$table_columns   = array();
+		$table_columns[] = "index_id bigint(20) NOT NULL AUTO_INCREMENT";
 
 		//Entry ID should always be the second column
 		$type = $this->generate_column_schema( 'id' );
@@ -796,9 +797,9 @@ SQL;
 		 */
 		$spacer = '';
 
-		$default  = "";
-		$not_null = 'NOT NULL,';
-		$table_columns .= "id " . $type . " " . $default . $spacer . $not_null . "\n\t";
+		$default         = "";
+		$not_null        = 'NOT NULL';
+		$table_columns[] = "id " . $type . " " . $default . $spacer . $not_null;
 
 		foreach ( $columns as $column_key => $value ) {
 
@@ -814,9 +815,9 @@ SQL;
 			 */
 			$spacer = "None" !== $default ? ' ' : '';
 
-			$default  = "None" === $default ? '' : "DEFAULT $default";
-			$not_null = null === $default ? ',' : 'NOT NULL,';
-			$table_columns .= $column_key . " " . $type . " " . $default . $spacer . $not_null . "\n\t";
+			$default         = "None" === $default || null === $default ? '' : "DEFAULT $default";
+			$not_null        = null === $default ? '' : 'NOT NULL';
+			$table_columns[] = $column_key . " " . $type . " " . $default . $spacer . $not_null;
 		}
 
 

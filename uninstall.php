@@ -66,8 +66,8 @@ class GravityView_DataTables_Alt_Uninstall {
 
 		$view_ids = $this->get_view_ids();
 		$this->delete_options( $view_ids );
-		$this->delete_backgorund_tasks( $view_ids );
 		$this->drop_tables( $view_ids );
+		$this->delete_backgorund_tasks( $view_ids );
 	}
 
 	/**
@@ -83,9 +83,12 @@ class GravityView_DataTables_Alt_Uninstall {
 
 		for ( $i = 0, $count = count( $post_ids ); $i < $count; $i ++ ) {
 			if ( $i < 1 ) {
-				$index_tables .= $wpdb->prefix . "gv_index_" . $post_ids[ $i ];
+				$index_tables .= '`' . $wpdb->prefix . "gv_index_" . $post_ids[ $i ];
 			} else {
-				$index_tables .= ', ' . $wpdb->prefix . "gv_index_" . $post_ids[ $i ];
+				$index_tables .= '`, `' . $wpdb->prefix . "gv_index_" . $post_ids[ $i ];
+			}
+			if ($i === $count - 1){
+				$index_tables .= '`';
 			}
 
 		}

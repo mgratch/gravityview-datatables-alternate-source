@@ -89,20 +89,9 @@ function gvdt_alt_src_load() {
 			$this->dataSrc = GravityView_DataTables_Alt_DataSrc::get_instance();
 		}
 
-		/**
-		 * @return GravityView_DataTables_Alt
-		 */
-		public static function get_instance() {
-
-			if ( empty( self::$instance ) ) {
-				self::$instance = new self;
-			}
-
-			return self::$instance;
-		}
 	}
 
-	GravityView_DataTables_Alt::get_instance();
+	new GravityView_DataTables_Alt();
 }
 
 /**

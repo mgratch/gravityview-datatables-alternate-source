@@ -152,10 +152,11 @@ class WP_GVDT_Index_Job extends WP_Job {
 
 	/**
 	 *Provide a method to unlock locked tables, for uninstall purposes only
-	 * @internal 
+	 *
+	 * @param int $delay
 	 */
-	public function release(){
-		parent::release();
+	public function release( $delay = 0 ) {
+		parent::release( $delay );
 	}
 
 

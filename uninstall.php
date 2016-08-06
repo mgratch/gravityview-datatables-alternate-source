@@ -62,10 +62,11 @@ class GravityView_DataTables_Alt_Uninstall {
 	 * @return void
 	 */
 	private function fire_everything() {
-		global $wpdb;
+		global $wpdb, $wp_queue;
 
 		$view_ids = $this->get_view_ids();
 		$this->delete_options( $view_ids );
+		$this->delete_backgorund_tasks( $view_ids );
 		$this->drop_tables( $view_ids );
 	}
 
@@ -124,6 +125,46 @@ class GravityView_DataTables_Alt_Uninstall {
 		}
 
 		return $view_ids;
+
+	}
+
+	/**
+	 * Find any remaining background tasks associated with GravityView DataTables ALt Sources
+	 *
+	 * @param $view_ids
+	 *
+	 */
+	private function delete_backgorund_tasks( $view_ids ) {
+
+		/** @define "GVDT_ALT_SRC_DIR" "./" The absolute path to the plugin directory */
+		if ( ! defined( 'GVDT_ALT_SRC_DIR' ) ) {
+			define( 'GVDT_ALT_SRC_DIR', plugin_dir_path( __FILE__ ) );
+		}
+		require_once GVDT_ALT_SRC_DIR . 'includes/class-gravityview-background-processing.php';
+
+		global $wp_queue;
+		$WP_GVDT_Index_Job = new WP_GVDT_Index_Job();
+
+		$WP_GVDT_Index_Job->release();
+		$wp_queue->restart_failed_jobs();
+		$job_count = $wp_queue->available_jobs();
+
+		for ( $i = 0; $i < $job_count; $i ++ ) {
+
+			$job = $wp_queue->get_next_job();
+
+			if ( false !== strpos( $job->job, "WP_GVDT_Index_Job" ) ) {
+				$wp_queue->delete( $job );
+				if ( $i === $job_count - 1 ) {
+					if ( 0 !== $wp_queue->available_jobs() ) {
+						$job_count = $wp_queue->available_jobs();
+					}
+					$i = - 1;
+				}
+			}
+
+		}
+
 
 	}
 }

@@ -388,7 +388,7 @@ SQL;
 		$columns = $this->get_column_defaults();
 
 		if ( empty( $columns ) ) {
-			exit();
+			return;
 		}
 
 		//always make sure entry id is set
@@ -486,7 +486,7 @@ SQL;
 			$result = $wpdb->query( $sql . $create_tmp_table );
 
 			if ( false === $result ) {
-				exit();
+				return;
 			}
 
 			//prep old table for drop
@@ -496,7 +496,7 @@ SQL;
 			$result            = $wpdb->query( $rename_curr_table );
 
 			if ( false === $result ) {
-				exit();
+				return;
 			}
 			//Make tmp table the new index table
 			$rename_new_table = <<<SQL
@@ -505,7 +505,7 @@ SQL;
 			$result           = $wpdb->query( $rename_new_table );
 
 			if ( false === $result ) {
-				exit();
+				return;
 			}
 			//Drop the old index table
 			$drop_old_table = <<<SQL
@@ -514,7 +514,7 @@ SQL;
 			$result         = $wpdb->query( $drop_old_table );
 
 			if ( false === $result ) {
-				exit();
+				return;
 			}
 		}
 

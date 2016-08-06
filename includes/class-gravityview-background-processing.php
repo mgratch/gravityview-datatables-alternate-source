@@ -149,4 +149,14 @@ class WP_GVDT_Index_Job extends WP_Job {
 		return $entry;
 	}
 
+
+	/**
+	 *Provide a method to unlock locked tables, for uninstall purposes only
+	 * @internal 
+	 */
+	public function release(){
+		parent::release();
+	}
+
+
 }

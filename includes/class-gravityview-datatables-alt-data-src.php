@@ -545,7 +545,7 @@ class GravityView_DataTables_Alt_DataSrc {
 			return;
 		}
 
-		$post_ids = $wpdb->get_results( $wpdb->prepare( "SELECT post_id FROM $wpdb->postmeta WHERE meta_key = %s", "_gravityview_datatables_settings" ), ARRAY_A );
+		$post_ids = $wpdb->get_results( $wpdb->prepare( "SELECT DISTINCT post_id FROM $wpdb->postmeta WHERE meta_key = %s", "_gravityview_datatables_settings" ), ARRAY_A );
 
 		if ( ! $post_ids ) {
 			return;

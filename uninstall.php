@@ -120,7 +120,7 @@ class GravityView_DataTables_Alt_Uninstall {
 	private function get_view_ids() {
 		global $wpdb;
 
-		$views    = $wpdb->get_results( $wpdb->prepare( "SELECT post_id FROM $wpdb->postmeta WHERE meta_key = %s", "_gravityview_datatables_settings" ), ARRAY_A );
+		$views    = $wpdb->get_results( $wpdb->prepare( "SELECT DISTINCT post_id FROM $wpdb->postmeta WHERE meta_key = %s", "_gravityview_datatables_settings" ), ARRAY_A );
 		$view_ids = array();
 
 		foreach ( $views as $view ) {
@@ -148,7 +148,7 @@ class GravityView_DataTables_Alt_Uninstall {
 		global $wp_queue;
 		$WP_GVDT_Index_Job = new WP_GVDT_Index_Job();
 
-		$WP_GVDT_Index_Job->release();
+		$WP_GVDT_Index_Job->release(0);
 		$wp_queue->restart_failed_jobs();
 		$job_count = $wp_queue->available_jobs();
 
@@ -156,7 +156,7 @@ class GravityView_DataTables_Alt_Uninstall {
 
 			$job = $wp_queue->get_next_job();
 
-			if ( false !== strpos( $job->job, "WP_GVDT_Index_Job" ) ) {
+			if ( isset($job->job) && false !== strpos( $job->job, "WP_GVDT_Index_Job" ) ) {
 				$wp_queue->delete( $job );
 				if ( $i === $job_count - 1 ) {
 					if ( 0 !== $wp_queue->available_jobs() ) {

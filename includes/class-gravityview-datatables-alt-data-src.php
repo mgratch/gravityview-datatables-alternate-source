@@ -139,9 +139,9 @@ class GravityView_DataTables_Alt_DataSrc {
 		$view_data                      = get_post_meta( $view_id, '_gravityview_template_settings', true );
 		$index_custom_data              = apply_filters( 'gv_index_custom_content', $answer = false, $view_id );
 
-		$use_index = $this->notify_processing_status( $view_id, false );
+		$index_is_ready = $this->notify_processing_status( $view_id, false );
 
-		if ( ! $use_index ) {
+		if ( ! $index_is_ready ) {
 			return $dt_config;
 		}
 
@@ -1092,17 +1092,25 @@ class GravityView_DataTables_Alt_DataSrc {
 			}
 		}
 
+		//$output only contains a message if processing is NOT complete
+		//if we are still processing and echo is true then show the message,
+		//if there is a message but echo is false, return false
+		//i.e. "is processing done? No, no it isn't"
+
 		if ( ! empty( $output ) ) {
 			switch ( $echo ):
 				case true:
 					echo $output;
 					break;
 				case false:
-					return $output = true;
+					return $output = false;
 			endswitch;
 
-		} elseif ( ! $echo ) {
-			return $output = false;
+		}
+		//if processing is complete and this is not an echo respond true,
+		//i.e. "is processing done? Yes it is!"
+		elseif ( ! $echo ) {
+			return $output = true;
 		}
 	}
 

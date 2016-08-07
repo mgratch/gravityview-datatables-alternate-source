@@ -64,11 +64,13 @@ class GravityView_DataTables_SSP {
 
 					if ( ( ! isset( $gravityview_directory_fields[ $j ]['show_as_link'] ) &&
 					       'edit_link' == $gravityview_directory_fields[ $j ]['id'] ||
-					       'delete_link' == $gravityview_directory_fields[ $j ]['id'] ) ||
+					       'delete_link' == $gravityview_directory_fields[ $j ]['id'] ||
+					       'date_created' === $gravityview_directory_fields[ $j ]['id'] ) ||
 					     ( isset( $gravityview_directory_fields[ $j ]['show_as_link'] ) &&
 					       '0' !== $gravityview_directory_fields[ $j ]['show_as_link'] ) ||
 					     ( false !== strpos( $column['db'], 'custom_' ) && ! $index_custom_data )
 					) {
+
 						//Get the processed field value
 						$entry = GFAPI::get_entry( $data[ $i ]['id'] );
 

@@ -51,7 +51,7 @@ class GravityView_DataTables_Alt_DataSrc {
 
 		add_action( 'wp_ajax_gv_alt_datatables_data', array( $this, 'get_alt_datatables_data' ), 10 );
 		add_action( 'wp_ajax_nopriv_gv_alt_datatables_data', array( $this, 'get_alt_datatables_data' ), 10 );
-		//add_filter( 'gravityview/dt/index/skip', array( $this, 'skip_index' ), 10 );
+		add_filter( 'gravityview/dt/index/skip', array( $this, 'skip_index' ), 10 );
 		add_filter( 'gravityview_before', array( $this, 'notify_processing_status' ), 10 );
 
 		add_action( 'pre_post_update', array( $this, 'store_multisort_settings' ), 10, 2 );

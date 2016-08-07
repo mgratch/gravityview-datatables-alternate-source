@@ -39,13 +39,10 @@ class GravityView_DataTables_Alt_DataSrc {
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_admin_scripts' ), 11 );
 		add_action( 'gravityview_default_args', array( $this, 'add_hidden_field' ), 10 );
 
-		//add_filter( 'gravityview_use_cache', '__return_false' );
-
 		add_filter( 'gravityview/metaboxes/default', array( $this, 'remove_metabox_tab' ) );
 
 		add_filter( 'gravityview_field_entry_value', array( $this, 'format_entry_value_array' ), 10, 4 );
 		add_filter( 'gv_index_custom_content', array( $this, 'index_custom_content_values' ), 11, 2 );
-		//add_filter( 'gravityview/dt/index/skip', array( $this, 'skip_index' ), 10 );
 
 		add_filter( 'gravityview_datatables_js_options', array(
 			$this,
@@ -54,6 +51,8 @@ class GravityView_DataTables_Alt_DataSrc {
 
 		add_action( 'wp_ajax_gv_alt_datatables_data', array( $this, 'get_alt_datatables_data' ), 10 );
 		add_action( 'wp_ajax_nopriv_gv_alt_datatables_data', array( $this, 'get_alt_datatables_data' ), 10 );
+		//add_filter( 'gravityview/dt/index/skip', array( $this, 'skip_index' ), 10 );
+		add_filter( 'gravityview_before', array( $this, 'notify_processing_status' ), 10 );
 
 		add_action( 'pre_post_update', array( $this, 'store_multisort_settings' ), 10, 2 );
 
@@ -132,28 +131,18 @@ class GravityView_DataTables_Alt_DataSrc {
 
 		$dont_index_me = apply_filters( 'gravityview/dt/index/skip', $view_id );
 
-		if ( $dont_index_me ){
+		if ( $dont_index_me ) {
+			add_filter( 'gravityview_before', function(){ echo "<p>THIS INDEXED IS CURRENTLY BEING FILTERED OUT</p>"; }, 10 );
 			return $return_config;
 		}
 
 		$view_data                      = get_post_meta( $view_id, '_gravityview_template_settings', true );
-		$gravityview_directory_template = get_post_meta( $view_id, '_gravityview_directory_template', true );
-		$form_id                        = get_post_meta( $view_id, '_gravityview_form_id', true );
 		$index_custom_data              = apply_filters( 'gv_index_custom_content', $answer = false, $view_id );
 
-		if ( 'datatables_table' === $gravityview_directory_template ) {
-			$gravityview_view_DT = new GravityView_DataTables_Index_DB( $view_id );
+		$use_index = $this->notify_processing_status( $view_id, false );
 
-			/**
-			 * @var array $search_criteria
-			 * @see \GravityView_frontend::get_search_criteria
-			 */
-			$search_criteria = GravityView_frontend::get_search_criteria( $view_data, $form_id );
-			$entries_count   = (int) GFAPI::count_entries( $form_id, $search_criteria );
-			$dt_count        = (int) $gravityview_view_DT->count( $search_criteria );
-			if ( ! $gravityview_view_DT->table_exists( $gravityview_view_DT->table_name ) || $entries_count !== $dt_count ) {
-				return $dt_config;
-			}
+		if ( ! $use_index ) {
+			return $dt_config;
 		}
 
 
@@ -880,14 +869,13 @@ class GravityView_DataTables_Alt_DataSrc {
 		if ( ! empty( $filter ) ) {
 			$filters = "";
 			for ( $i = 0, $count = count( $filter ); $i < $count; $i ++ ) {
-				$rule         = $filter[ $i ];
-				$column_name  = is_numeric( $rule['key'] ) ? "field_" . $rule['key'] : $rule['key'];
-				$operator     = $rule['operator'];
-				$value        = $rule['value'];
+				$rule        = $filter[ $i ];
+				$column_name = is_numeric( $rule['key'] ) ? "field_" . $rule['key'] : $rule['key'];
+				$operator    = $rule['operator'];
+				$value       = $rule['value'];
 
-				$value = GFCommon::has_merge_tag($value) ? GFCommon::replace_variables_prepopulate( $value ) : $value;
+				$value        = GFCommon::has_merge_tag( $value ) ? GFCommon::replace_variables_prepopulate( $value ) : $value;
 				$or_statement = '';
-
 
 
 				switch ( $operator ):
@@ -909,7 +897,6 @@ class GravityView_DataTables_Alt_DataSrc {
 						$value    = "%$value%";
 						break;
 				endswitch;
-
 
 
 				if ( 0 === $i ) {
@@ -1067,6 +1054,59 @@ class GravityView_DataTables_Alt_DataSrc {
 	}
 
 	/**
+	 * Quick and dirty way to notify background processing is still enabled
+	 *
+	 * @param $view_id
+	 * @param bool $echo
+	 *
+	 * @optional return
+	 *
+	 * @return bool
+	 */
+	public function notify_processing_status( $view_id, $echo = true ) {
+		$form_id = get_post_meta( $view_id, '_gravityview_form_id', true );
+		//$gravityview_directory_template = get_post_meta( $view_id, '_gravityview_directory_template', true );
+		$view_data = GravityView_View_Data::getInstance()->get_view( $view_id );
+		$output    = '';
+
+		$gravityview_view_DT = new GravityView_DataTables_Index_DB( $view_id );
+
+		/**
+		 * @var array $search_criteria
+		 * @see \GravityView_frontend::get_search_criteria
+		 */
+		$search_criteria = GravityView_frontend::get_search_criteria( $view_data, $form_id );
+		$entries_count   = (int) GFAPI::count_entries( $form_id, $search_criteria );
+		$dt_count        = (int) $gravityview_view_DT->count( $search_criteria );
+
+		if ( ! $gravityview_view_DT->table_exists( $gravityview_view_DT->table_name ) || $entries_count !== $dt_count ) {
+			if ( class_exists( 'GravityView_Roles_Capabilities' ) &&
+			     GVCommon::has_cap( array(
+					'gravityforms_delete_entries',
+					'gravityview_delete_others_entries'
+				) )
+			) {
+				$output = "<p>STILL PROCESSING... Processed: $dt_count of $entries_count </p>";
+			} elseif ( current_user_can( 'gravityforms_delete_forms' ) ) {
+				$output = "<p>STILL PROCESSING... Processed: $dt_count of $entries_count </p>";
+			}
+		}
+
+		if ( ! empty( $output ) ) {
+			switch ( $echo ):
+				case true:
+					echo $output;
+					break;
+				case false:
+					return $output = true;
+			endswitch;
+
+		} elseif ( ! $echo ) {
+			return $output = false;
+		}
+	}
+
+	/**
 	 * if it returns
 	 * @param null $view_id
 	 *
@@ -1075,6 +1115,5 @@ class GravityView_DataTables_Alt_DataSrc {
 	public function skip_index( $view_id = null ) {
 		return false;
 	}
-
 
 }

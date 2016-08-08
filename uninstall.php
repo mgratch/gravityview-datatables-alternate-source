@@ -22,22 +22,9 @@ class GravityView_DataTables_Alt_Uninstall {
 
 	public function __construct() {
 
-		if ( class_exists( 'GravityView_Roles_Capabilities' ) ) {
-			//include_once $file_path . 'includes/class-gravityview-roles-capabilities.php';
-			/**
-			 * Only delete content and settings if "Delete on Uninstall?" setting is "Permanently Delete"
-			 * @todo create create delete setting for plugin
-			 */
-			//$delete = $this->get_delete_setting();
+		error_log( "start uninstall" );
 
-			if ( GravityView_Roles_Capabilities::has_cap( 'gravityview_uninstall' ) /* && 'delete' === $delete */ ) {
-				$this->fire_everything();
-			}
-
-		} else {
-			$this->fire_everything();
-		}
-
+		$this->fire_everything();
 
 	}
 
@@ -62,8 +49,7 @@ class GravityView_DataTables_Alt_Uninstall {
 	 * @return void
 	 */
 	private function fire_everything() {
-		global $wpdb, $wp_queue;
-
+		error_log( "fire everything" );
 		$view_ids = $this->get_view_ids();
 		$this->delete_options( $view_ids );
 		$this->drop_tables( $view_ids );
@@ -83,20 +69,19 @@ class GravityView_DataTables_Alt_Uninstall {
 
 		for ( $i = 0, $count = count( $post_ids ); $i < $count; $i ++ ) {
 			if ( $i < 1 ) {
-				$index_tables .= '`' . $wpdb->prefix . "gv_index_" . $post_ids[ $i ];
+				$index_tables .= $wpdb->prefix . "gv_index_" . $post_ids[ $i ];
 			} else {
-				$index_tables .= '`, `' . $wpdb->prefix . "gv_index_" . $post_ids[ $i ];
+				$index_tables .= ', ' . $wpdb->prefix . "gv_index_" . $post_ids[ $i ];
 			}
-			if ($i === $count - 1){
-				$index_tables .= '`';
-			}
-
 		}
 
 		$sql = "DROP TABLE IF EXISTS $index_tables";
 		$sql = esc_sql( $sql );
 
-		$wpdb->query( $sql );
+		$result = $wpdb->query( $sql );
+
+		error_log( "Table dropped: " . $result . " with the query: " . $sql );
+
 	}
 
 	/**
@@ -108,7 +93,8 @@ class GravityView_DataTables_Alt_Uninstall {
 	private function delete_options( $post_ids = array() ) {
 
 		foreach ( $post_ids as $id ) {
-			delete_transient( 'gv_index_' . $id );
+			$result = delete_transient( 'gv_index_' . $id );
+			error_log( "transient deleted: " . $result );
 		}
 
 	}
@@ -126,7 +112,7 @@ class GravityView_DataTables_Alt_Uninstall {
 		foreach ( $views as $view ) {
 			$view_ids[] = $view['post_id'];
 		}
-
+		error_log( implode(", ", $view_ids ) );
 		return $view_ids;
 
 	}
@@ -160,8 +146,12 @@ class GravityView_DataTables_Alt_Uninstall {
 			if ( isset($job->job) && false !== strpos( $job->job, "WP_GVDT_Index_Job" ) ) {
 				$wp_queue->delete( $job );
 				if ( $i === $job_count - 1 ) {
+
+					error_log( "Job Count Cleared: " . $job_count );
+
 					if ( 0 !== $wp_queue->available_jobs() ) {
 						$job_count = $wp_queue->available_jobs();
+						error_log( "Job Count Restarted: " . $job_count );
 					}
 					$i = - 1;
 				}

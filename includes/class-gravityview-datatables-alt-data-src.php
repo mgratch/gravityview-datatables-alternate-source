@@ -51,7 +51,7 @@ class GravityView_DataTables_Alt_DataSrc {
 
 		add_action( 'wp_ajax_gv_alt_datatables_data', array( $this, 'get_alt_datatables_data' ), 10 );
 		add_action( 'wp_ajax_nopriv_gv_alt_datatables_data', array( $this, 'get_alt_datatables_data' ), 10 );
-		add_filter( 'gravityview/dt/index/skip', array( $this, 'skip_index' ), 10 );
+		//add_filter( 'gravityview/dt/index/skip', array( $this, 'skip_index' ), 10 );
 		add_filter( 'gravityview_before', array( $this, 'notify_processing_status' ), 10 );
 
 		add_action( 'pre_post_update', array( $this, 'store_multisort_settings' ), 10, 2 );
@@ -129,15 +129,19 @@ class GravityView_DataTables_Alt_DataSrc {
 		//store original options
 		$return_config = $dt_config;
 
-		$dont_index_me = apply_filters( 'gravityview/dt/index/skip', $view_id );
+		$maybe_index = apply_filters( 'gravityview/dt/index/skip', $view_id );
 
-		if ( $dont_index_me ) {
-			add_filter( 'gravityview_before', function(){ echo "<p>THIS INDEXED IS CURRENTLY BEING FILTERED OUT</p>"; }, 10 );
+		if ( true === $maybe_index ) {
+			if ( ! wp_script_is( 'jquery', 'done' ) ) {
+				wp_enqueue_script( 'jquery' );
+			}
+			echo '<script>console.log("THIS VIEW IS CURRENTLY NOT USING THE INDEX");</script>';
+			remove_filter( 'gravityview_before', array( $this, 'notify_processing_status' ) );
 			return $return_config;
 		}
 
-		$view_data                      = get_post_meta( $view_id, '_gravityview_template_settings', true );
-		$index_custom_data              = apply_filters( 'gv_index_custom_content', $answer = false, $view_id );
+		$view_data         = get_post_meta( $view_id, '_gravityview_template_settings', true );
+		$index_custom_data = apply_filters( 'gv_index_custom_content', $answer = false, $view_id );
 
 		$index_is_ready = $this->notify_processing_status( $view_id, false );
 
@@ -1071,24 +1075,27 @@ class GravityView_DataTables_Alt_DataSrc {
 
 		$gravityview_view_DT = new GravityView_DataTables_Index_DB( $view_id );
 
-		/**
-		 * @var array $search_criteria
-		 * @see \GravityView_frontend::get_search_criteria
-		 */
-		$search_criteria = GravityView_frontend::get_search_criteria( $view_data, $form_id );
-		$entries_count   = (int) GFAPI::count_entries( $form_id, $search_criteria );
-		$dt_count        = (int) $gravityview_view_DT->count( $search_criteria );
+		if ( $gravityview_view_DT->table_exists( $gravityview_view_DT->table_name ) ) {
 
-		if ( ! $gravityview_view_DT->table_exists( $gravityview_view_DT->table_name ) || $entries_count !== $dt_count ) {
-			if ( class_exists( 'GravityView_Roles_Capabilities' ) &&
-			     GVCommon::has_cap( array(
-					'gravityforms_delete_entries',
-					'gravityview_delete_others_entries'
-				) )
-			) {
-				$output = "<p>STILL PROCESSING... Processed: $dt_count of $entries_count </p>";
-			} elseif ( current_user_can( 'gravityforms_delete_forms' ) ) {
-				$output = "<p>STILL PROCESSING... Processed: $dt_count of $entries_count </p>";
+			/**
+			 * @var array $search_criteria
+			 * @see \GravityView_frontend::get_search_criteria
+			 */
+			$search_criteria = GravityView_frontend::get_search_criteria( $view_data, $form_id );
+			$entries_count   = (int) GFAPI::count_entries( $form_id, $search_criteria );
+			$dt_count        = (int) $gravityview_view_DT->count( $search_criteria );
+
+			if ( $entries_count !== $dt_count ) {
+				if ( class_exists( 'GravityView_Roles_Capabilities' ) &&
+				     GVCommon::has_cap( array(
+					     'gravityforms_delete_entries',
+					     'gravityview_delete_others_entries'
+				     ) )
+				) {
+					$output = "<p>STILL PROCESSING... Processed: $dt_count of $entries_count </p>";
+				} elseif ( current_user_can( 'gravityforms_delete_forms' ) ) {
+					$output = "<p>STILL PROCESSING... Processed: $dt_count of $entries_count </p>";
+				}
 			}
 		}
 
@@ -1116,6 +1123,7 @@ class GravityView_DataTables_Alt_DataSrc {
 
 	/**
 	 * if it returns
+	 *
 	 * @param null $view_id
 	 *
 	 * @return bool

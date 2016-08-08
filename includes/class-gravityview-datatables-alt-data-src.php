@@ -129,12 +129,9 @@ class GravityView_DataTables_Alt_DataSrc {
 		//store original options
 		$return_config = $dt_config;
 
-		$maybe_index = apply_filters( 'gravityview/dt/index/skip', $view_id );
+		$skip_index = apply_filters( 'gravityview/dt/index/skip', $view_id );
 
-		if ( true === $maybe_index ) {
-			if ( ! wp_script_is( 'jquery', 'done' ) ) {
-				wp_enqueue_script( 'jquery' );
-			}
+		if ( true === $skip_index ) {
 			echo '<script>console.log("THIS VIEW IS CURRENTLY NOT USING THE INDEX");</script>';
 			remove_filter( 'gravityview_before', array( $this, 'notify_processing_status' ) );
 			return $return_config;
@@ -230,7 +227,7 @@ class GravityView_DataTables_Alt_DataSrc {
 		/**
 		 * @todo Use Delicious Brain method to detect bottleneck and process at that point
 		 */
-		$atts['page_size'] = '250';
+		$atts['page_size'] = '150';
 		$atts['offset']    = isset( $atts['offset'] ) ? intval( $atts['offset'] ) : 0;
 
 		$paging = array(
@@ -522,8 +519,12 @@ class GravityView_DataTables_Alt_DataSrc {
 		$gravityview_directory_template = get_post_meta( $post_id, '_gravityview_directory_template', true );
 
 		if ( 'datatables_table' === $gravityview_directory_template ) {
-			$gravityview_view_DT = new GravityView_DataTables_Index_DB( $post_id );
-			$gravityview_view_DT->create_table();
+			$skip_index = apply_filters( 'gravityview/dt/index/skip', $post_id );
+
+			if ( true !== $skip_index ) {
+				$gravityview_view_DT = new GravityView_DataTables_Index_DB( $post_id );
+				$gravityview_view_DT->create_table();
+			}
 		}
 	}
 
@@ -545,8 +546,14 @@ class GravityView_DataTables_Alt_DataSrc {
 		}
 
 		foreach ( $post_ids as $post ) {
-			$gravityview_view_DT = new GravityView_DataTables_Index_DB( $post['post_id'] );
-			$gravityview_view_DT->create_table();
+			$skip_index = false;
+			$skip_index = apply_filters( 'gravityview/dt/index/skip', $post['post_id'] );
+			if ( true !== $skip_index ) {
+				$gravityview_view_DT = new GravityView_DataTables_Index_DB( $post['post_id'] );
+				$gravityview_view_DT->create_table();
+			}
+
+
 		}
 
 	}

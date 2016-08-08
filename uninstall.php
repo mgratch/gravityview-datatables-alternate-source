@@ -51,9 +51,9 @@ class GravityView_DataTables_Alt_Uninstall {
 	private function fire_everything() {
 		error_log( "fire everything" );
 		$view_ids = $this->get_view_ids();
+		$this->delete_backgorund_tasks( $view_ids );
 		$this->delete_options( $view_ids );
 		$this->drop_tables( $view_ids );
-		$this->delete_backgorund_tasks( $view_ids );
 	}
 
 	/**

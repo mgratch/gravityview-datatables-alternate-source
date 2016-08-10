@@ -94,6 +94,8 @@ class GravityView_DataTables_Alt_Uninstall {
 
 		foreach ( $post_ids as $id ) {
 			$result = delete_transient( 'gv_index_' . $id );
+			$result .= ", ";
+			$result .= delete_transient( "gv_index_" . $id . "multisort" );
 			error_log( "transient deleted: " . $result );
 		}
 

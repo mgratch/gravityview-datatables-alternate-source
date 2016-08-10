@@ -134,6 +134,7 @@ class GravityView_DataTables_Alt_DataSrc {
 		if ( true === $skip_index ) {
 			echo '<script>console.log("THIS VIEW IS CURRENTLY NOT USING THE INDEX");</script>';
 			remove_filter( 'gravityview_before', array( $this, 'notify_processing_status' ) );
+
 			return $return_config;
 		}
 
@@ -271,7 +272,11 @@ class GravityView_DataTables_Alt_DataSrc {
 				$include_date_created = false;
 
 				if ( $filters ) {
+
+					//mode doesn't matter at this point and gets in the way
 					unset( $filters['mode'] );
+
+					//add fields to be filtered by to the index
 					foreach ( $filters as $filter ) {
 						$fields[] = array( 'id' => $filter['key'] );
 					}
@@ -301,19 +306,25 @@ class GravityView_DataTables_Alt_DataSrc {
 						} else {
 							//try not to store html
 							$fields[ $i ]['show_as_link'] = 0;
+
+							//only custom content fields have an array key of `content`
 							if ( isset( $fields[ $i ]['content'] ) ) {
 
+								//check if custom content is to be stored in the index
 								if ( $index_custom_data ) {
 									$custom_data = GravityView_API::field_value( $entry, $fields[ $i ] );
 									$custom_data = array( "custom" => $custom_data['custom'] );
 								} else {
-									$custom_data = array( "custom" => $fields[ $i ]['content'] );
+									$encoded = preg_replace('/[\x{00a0}\x{200b}]+/u', '', $fields[ $i ]['content']);
+									$custom_data = array( "custom" => $encoded );
 								}
-
 								$temp = array_merge( $temp, $custom_data );
+
 							} else {
-								$temp = array_merge( $temp, GravityView_API::field_value( $entry, $fields[ $i ] ) );
+								$temp = array_merge( $temp, GravityView_API::field_value( $entry, $fields[ $i ] ));
 							}
+
+							//assign the custom value a 'unique' key for the DB column
 							if ( key_exists( 'custom', $temp ) ) {
 								$temp = array_merge( $temp, array( 'custom_' . $c => $temp['custom'] ) );
 								unset( $temp['custom'] );
@@ -321,15 +332,17 @@ class GravityView_DataTables_Alt_DataSrc {
 							}
 						}
 
+						//if the index is at the final position make sure an ID is included
 						if ( count( $fields ) - 1 === $i && isset( $include_id ) && ! $include_id ) {
 							$temp = $temp + array( 'id' => $entry['id'] );
 						}
 
-
+						//if the index is at the final position make sure date_created is included
 						if ( count( $fields ) - 1 === $i && isset( $include_date_created ) && ! $include_date_created ) {
 							$temp = $temp + array( 'date_created' => $entry['date_created'] );
 						}
 
+						//if the index is at the final position make sure is_approved is included
 						if ( count( $fields ) - 1 === $i && isset( $include_approval ) && ! $include_approval ) {
 							$temp = $temp + array( 'is_approved' => gform_get_meta( $entry['id'], 'is_approved' ) );
 						}
@@ -380,7 +393,10 @@ class GravityView_DataTables_Alt_DataSrc {
 				$key = preg_replace( '/[.-]/', '_', $key );
 			}
 
-			return array( $key => $output );
+			//removing zero width characters
+			$encoded = preg_replace('/[\x{00a0}\x{200b}]+/u', '', $output);
+
+			return array( $key => $encoded );
 		} else {
 			return $output;
 		}
@@ -434,7 +450,7 @@ class GravityView_DataTables_Alt_DataSrc {
 			 */
 			if ( 'id' === $fields[ $i ]['id'] ) {
 				$include_id = true;
-				$view_entry = $view_entry + array( 'id' => $entry['id'] );
+				$view_entry = $view_entry + array( 'id' => (int) $entry['id'] );
 			} elseif ( 'date_created' === $fields[ $i ]['id'] ) {
 				$include_date_created = true;
 				$view_entry           = $view_entry + array( 'date_created' => $entry['date_created'] );
@@ -452,7 +468,9 @@ class GravityView_DataTables_Alt_DataSrc {
 						$custom_data = GravityView_API::field_value( $entry, $fields[ $i ] );
 						$custom_data = array( "custom" => $custom_data );
 					} else {
-						$custom_data = array( "custom" => esc_html( $fields[ $i ]['content'] ) );
+						//removing zero width characters
+						$encoded = preg_replace('/[\x{00a0}\x{200b}]+/u', '', $fields[ $i ]['content']);
+						$custom_data = array( "custom" => $encoded );
 					}
 
 					$view_entry = array_merge( $view_entry, $custom_data );
@@ -464,7 +482,6 @@ class GravityView_DataTables_Alt_DataSrc {
 					$key = str_replace( ' ', '_', $key );
 					$key = preg_replace( '/[^a-z0-9_\.\-]/', '', $key );
 					$key = preg_replace( '/[.-]/', '_', $key );
-
 
 					$field_value = is_array( $field_value ) ? $field_value : array( $key => $field_value );
 					$view_entry  = array_merge( $view_entry, $field_value );
@@ -847,11 +864,14 @@ class GravityView_DataTables_Alt_DataSrc {
 		 * server-side, there is no need to edit below this line.
 		 */
 
+		global $wpdb;
+
 		$sql_details = array(
-			'user' => DB_USER,
-			'pass' => DB_PASSWORD,
-			'db'   => DB_NAME,
-			'host' => DB_HOST
+			'user'    => DB_USER,
+			'pass'    => DB_PASSWORD,
+			'db'      => DB_NAME,
+			'host'    => DB_HOST,
+			'charset' => $wpdb->charset
 		);
 
 		require_once GVDT_ALT_SRC_DIR . 'includes/class-gravityview-datatables-ssp.php';

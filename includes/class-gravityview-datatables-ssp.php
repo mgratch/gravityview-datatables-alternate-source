@@ -90,7 +90,7 @@ class GravityView_DataTables_SSP {
 
 				// Is there a formatter?
 				if ( isset( $column['formatter'] ) ) {
-					$row[ $column['dt'] ] = $column['formatter']( $data[ $i ][ $column['db'] ], $data[ $i ] );
+					$row[ $column['dt'] ] =  $column['formatter']( $data[ $i ][ $column['db'] ], $data[ $i ] );
 				} else {
 					$row[ $column['dt'] ] =  $data[ $i ][ $columns[ $j ]['db'] ];
 				}
@@ -439,9 +439,11 @@ class GravityView_DataTables_SSP {
 	 * @return resource Database connection handle
 	 */
 	static function sql_connect( $sql_details ) {
+		global $wpdb;
+
 		try {
 			$db = @new PDO(
-				"mysql:host={$sql_details['host']};dbname={$sql_details['db']};charset=utf8mb4",
+				"mysql:host={$sql_details['host']};dbname={$sql_details['db']};charset={$sql_details['charset']}",
 				$sql_details['user'],
 				$sql_details['pass'],
 				array( PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION )

@@ -452,8 +452,7 @@ SQL;
 			update_option( $this->table_name . '_db_version', $this->version );
 		} else {
 
-			$view_data = $this->view_data;
-			$atts      = $view_data['atts'];
+			//if multisort is in use for this table a transient should've been set on update
 			$transient = get_transient( "gv_index_" . $this->view_id . "multisort" );
 
 			if ( $transient ) {

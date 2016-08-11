@@ -315,13 +315,13 @@ class GravityView_DataTables_Alt_DataSrc {
 									$custom_data = GravityView_API::field_value( $entry, $fields[ $i ] );
 									$custom_data = array( "custom" => $custom_data['custom'] );
 								} else {
-									$encoded = preg_replace('/[\x{00a0}\x{200b}]+/u', '', $fields[ $i ]['content']);
+									$encoded     = preg_replace( '/[\x{00a0}\x{200b}]+/u', '', $fields[ $i ]['content'] );
 									$custom_data = array( "custom" => $encoded );
 								}
 								$temp = array_merge( $temp, $custom_data );
 
 							} else {
-								$temp = array_merge( $temp, GravityView_API::field_value( $entry, $fields[ $i ] ));
+								$temp = array_merge( $temp, GravityView_API::field_value( $entry, $fields[ $i ] ) );
 							}
 
 							//assign the custom value a 'unique' key for the DB column
@@ -394,7 +394,7 @@ class GravityView_DataTables_Alt_DataSrc {
 			}
 
 			//removing zero width characters
-			$encoded = preg_replace('/[\x{00a0}\x{200b}]+/u', '', $output);
+			$encoded = preg_replace( '/[\x{00a0}\x{200b}]+/u', '', $output );
 
 			return array( $key => $encoded );
 		} else {
@@ -432,7 +432,26 @@ class GravityView_DataTables_Alt_DataSrc {
 		$fields = $fields[0];
 
 		//remove anonymizing field keys
-		$fields = array_values( $fields );
+		$fields  = array_values( $fields );
+
+		//get advanced filters if they are set
+		$filters = get_post_meta( $view_id, '_gravityview_filters', true );
+
+		if ( $filters ) {
+
+			//mode doesn't matter at this point and gets in the way
+			unset( $filters['mode'] );
+
+			//add fields to be filtered by to the index
+			foreach ( $filters as $filter ) {
+
+				/**
+				 * @todo check if filter column is already included in the fields array
+				 */
+
+				$fields[] = array( 'id' => $filter['key'] );
+			}
+		}
 
 
 		$view_entry = array();
@@ -469,7 +488,7 @@ class GravityView_DataTables_Alt_DataSrc {
 						$custom_data = array( "custom" => $custom_data );
 					} else {
 						//removing zero width characters
-						$encoded = preg_replace('/[\x{00a0}\x{200b}]+/u', '', $fields[ $i ]['content']);
+						$encoded     = preg_replace( '/[\x{00a0}\x{200b}]+/u', '', $fields[ $i ]['content'] );
 						$custom_data = array( "custom" => $encoded );
 					}
 

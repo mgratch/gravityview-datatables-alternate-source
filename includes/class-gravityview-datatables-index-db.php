@@ -321,11 +321,13 @@ SQL;
 			$args['orderby'] = 'subtotal+0';
 		}
 
-		$cache_key = ( true === $count ) ? md5( 'pw_entries_count' . serialize( $args ) ) : md5( 'pw_entries_' . serialize( $args ) );
+		$count_cache_key = md5( 'pw_entries_count' . serialize( 'count' . $this->view_id ) );
+		$cache_key = md5( 'pw_entries_' . serialize( array_merge($args, array('view_id' => $this->view_id)) ) );
 
 		$results = wp_cache_get( $cache_key, 'entries' );
+		$count_cache = wp_cache_get( $count_cache_key, 'entries_count' );
 
-		if ( false === $results ) {
+		if ( false === $count_cache ) {
 
 			if ( true === $count ) {
 
@@ -338,6 +340,7 @@ SQL;
 SQL;
 				$results = absint(
 					$wpdb->get_var( $sql ) );
+				wp_cache_set( $count_cache_key, $results, 'entries_count', 3600 );
 
 			} else {
 
@@ -348,11 +351,13 @@ SQL;
 						absint( $args['number'] )
 					)
 				);
-
+				wp_cache_set( $count_cache_key, count($results), 'entry_count', 3600 );
+				wp_cache_set( $cache_key, $results, 'entries', 3600 );
 			}
+		}
 
-			wp_cache_set( $cache_key, $results, 'entries', 3600 );
-
+		if ( true === $count && false !== $count_cache ) {
+			$results = $count_cache;
 		}
 
 		return $results;
@@ -492,7 +497,7 @@ SQL;
 
 			//prep old table for drop
 			$rename_curr_table = <<<SQL
-			ALTER TABLE `$table_name` RENAME `$drop_table_name`			
+			ALTER TABLE `$table_name` RENAME `$drop_table_name`
 SQL;
 			$result            = $wpdb->query( $rename_curr_table );
 

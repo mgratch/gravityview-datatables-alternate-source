@@ -2,7 +2,7 @@
 /**
  * Plugin Name: GravityView DataTables Alternative Source (BETA)
  * Plugin URI:  https://gravityview.co/extensions/gvdt-alt-src
- * Description: All an alternative source to be set for Gravity View DataTables Extension
+ * Description: Allow an alternative source to be set for Gravity View DataTables Extension
  * Version:     1.0.1
  * Text Domain: gravityview-datatables-alternate-source
  * License:     GPLv2 or later

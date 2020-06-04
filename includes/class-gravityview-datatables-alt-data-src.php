@@ -432,7 +432,7 @@ class GravityView_DataTables_Alt_DataSrc {
 		$fields = $fields[0];
 
 		//remove anonymizing field keys
-		$fields  = array_values( $fields );
+		$fields = array_values( $fields );
 
 		//get advanced filters if they are set
 		$filters = get_post_meta( $view_id, '_gravityview_filters', true );
@@ -621,7 +621,11 @@ class GravityView_DataTables_Alt_DataSrc {
 				if ( $table_exists = $gravityview_view_DT->table_exists( $gravityview_view_DT->table_name ) ) {
 					$entry = GFAPI::get_entry( $entry_id );
 					$entry = $this->prepare_entry( $view->ID, $entry );
-					$gravityview_view_DT->insert( $entry );
+					$result= $gravityview_view_DT->insert( $entry );
+					if ($result){
+						$count_cache_key = md5( 'pw_entries_count' . serialize( 'count' . $view->ID ) );
+						wp_cache_delete( $count_cache_key, 'entries_count' );
+					}
 				}
 			}
 
@@ -645,7 +649,11 @@ class GravityView_DataTables_Alt_DataSrc {
 				if ( $gravityview_view_DT->table_exists( $gravityview_view_DT->table_name ) ) {
 					$entry = GFAPI::get_entry( $entry_id );
 					$entry = $this->prepare_entry( $view->ID, $entry );
-					$gravityview_view_DT->update( $entry_id, $entry );
+					$result = $gravityview_view_DT->update( $entry_id, $entry );
+					if (true === $result){
+						$count_cache_key = md5( 'pw_entries_count' . serialize( 'count' . $view->ID ) );
+						wp_cache_delete( $count_cache_key, 'entries_count' );
+					}
 				}
 			}
 		}
@@ -673,7 +681,12 @@ class GravityView_DataTables_Alt_DataSrc {
 				if ( $gravityview_view_DT->table_exists( $gravityview_view_DT->table_name ) ) {
 					$entry = GFAPI::get_entry( $entry_id );
 					$entry = $this->prepare_entry( $view->ID, $entry );
-					$gravityview_view_DT->update( $entry_id, $entry );
+					$result = $gravityview_view_DT->update( $entry_id, $entry );
+					if (true === $result){
+						$count_cache_key = md5( 'pw_entries_count' . serialize( 'count' . $view->ID ) );
+						wp_cache_delete( $count_cache_key, 'entries_count' );
+					}
+
 				}
 			}
 		}
@@ -710,11 +723,24 @@ class GravityView_DataTables_Alt_DataSrc {
 				if ( 'datatables_table' === $gravityview_directory_template ) {
 					$gravityview_view_DT = new GravityView_DataTables_Index_DB( $view->ID );
 					if ( $gravityview_view_DT->table_exists( $gravityview_view_DT->table_name ) ) {
-						$gravityview_view_DT->delete( $entry_id );
+						$result = $gravityview_view_DT->delete( $entry_id );
+
+						if (true === $result){
+							$count_cache_key = md5( 'pw_entries_count' . serialize( 'count' . $view->ID ) );
+							wp_cache_delete( $count_cache_key, 'entries_count' );
+						}
 					}
 				}
 
 			}
+		} elseif ( 'active' === $property_value && 'trash' === $previous_value ) {
+
+			$entry = GFAPI::get_entry( $entry_id );
+			$form  = GFAPI::get_form( $entry['form_id'] );
+
+			$this->insert_entry( $entry, $form );
+
+
 		}
 	}
 
@@ -1132,15 +1158,19 @@ class GravityView_DataTables_Alt_DataSrc {
 			$dt_count        = (int) $gravityview_view_DT->count( $search_criteria );
 
 			if ( $entries_count !== $dt_count ) {
-				if ( class_exists( 'GravityView_Roles_Capabilities' ) &&
-				     GVCommon::has_cap( array(
-					     'gravityforms_delete_entries',
-					     'gravityview_delete_others_entries'
-				     ) )
-				) {
-					$output = "<p>STILL PROCESSING... Processed: $dt_count of $entries_count </p>";
-				} elseif ( current_user_can( 'gravityforms_delete_forms' ) ) {
-					$output = "<p>STILL PROCESSING... Processed: $dt_count of $entries_count </p>";
+
+				if ( $dt_count < $entries_count ) {
+					//something has gone wrong, there should never be more in the index than in the raw entry count.
+					if ( class_exists( 'GravityView_Roles_Capabilities' ) &&
+					     GVCommon::has_cap( array(
+						     'gravityforms_delete_entries',
+						     'gravityview_delete_others_entries'
+					     ) )
+					) {
+						$output = "<p>STILL PROCESSING... Processed: $dt_count of $entries_count </p>";
+					} elseif ( current_user_can( 'gravityforms_delete_forms' ) ) {
+						$output = "<p>STILL PROCESSING... Processed: $dt_count of $entries_count </p>";
+					}
 				}
 			}
 		}
